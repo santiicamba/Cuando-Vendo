@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Calendar, TrendingUp, TrendingDown, MoreVertical, Pencil, Trash2, DollarSign, Hash, Clock } from 'lucide-react'
+import { Calendar, TrendingUp, TrendingDown, MoreVertical, Pencil, Trash2, DollarSign, Hash, Clock, Info, ArrowUpDown, Banknote, BarChart3 } from 'lucide-react'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -21,6 +21,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { CalculatedPosition, formatARS, formatUSD, formatPercent } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
@@ -33,7 +39,7 @@ interface PositionCardProps {
 
 export function PositionCard({ position, cclRate, onEdit, onDelete }: PositionCardProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
-  const isPositive = position.realReturn >= 0
+  const isPositiveARS = position.returnARS >= 0
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('es-AR', {
@@ -44,16 +50,16 @@ export function PositionCard({ position, cclRate, onEdit, onDelete }: PositionCa
   }
 
   return (
-    <>
+    <TooltipProvider>
       <Card className={cn(
         "group relative overflow-hidden transition-all duration-300 hover:shadow-lg",
-        isPositive 
+        isPositiveARS 
           ? "hover:ring-2 hover:ring-success/30" 
           : "hover:ring-2 hover:ring-loss/30"
       )}>
         <div className={cn(
           "absolute top-0 left-0 right-0 h-1",
-          isPositive ? "bg-gradient-to-r from-success/80 to-success" : "bg-gradient-to-r from-loss/80 to-loss"
+          isPositiveARS ? "bg-gradient-to-r from-success/80 to-success" : "bg-gradient-to-r from-loss/80 to-loss"
         )} />
         
         <CardHeader className="pb-0">
@@ -61,7 +67,7 @@ export function PositionCard({ position, cclRate, onEdit, onDelete }: PositionCa
             <div className="flex items-center gap-3">
               <div className={cn(
                 "flex items-center justify-center w-12 h-12 rounded-xl text-lg font-bold shadow-sm",
-                isPositive 
+                isPositiveARS 
                   ? "bg-gradient-to-br from-success/20 to-success/10 text-success" 
                   : "bg-gradient-to-br from-loss/20 to-loss/10 text-loss"
               )}>
@@ -86,7 +92,7 @@ export function PositionCard({ position, cclRate, onEdit, onDelete }: PositionCa
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
                   <MoreVertical className="h-4 w-4" />
-                  <span className="sr-only">Abrir menú</span>
+                  <span className="sr-only">Abrir menu</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -106,27 +112,116 @@ export function PositionCard({ position, cclRate, onEdit, onDelete }: PositionCa
           </div>
         </CardHeader>
 
-        <CardContent className="space-y-4 pt-0">
-          {/* Real Return - Large and prominent */}
-          <div className={cn(
-            "flex items-center justify-center py-4 px-4 rounded-xl",
-            isPositive 
-              ? "bg-gradient-to-br from-success/20 to-success/5" 
-              : "bg-gradient-to-br from-loss/20 to-loss/5"
-          )}>
-            <div className="text-center">
-              <p className="text-xs text-muted-foreground mb-1">Rendimiento Real</p>
-              <div className="flex items-center justify-center gap-2">
-                {isPositive ? (
-                  <TrendingUp className="w-6 h-6 text-success" />
+        <CardContent className="space-y-4 pt-4">
+          {/* Three Return Metrics */}
+          <div className="space-y-2">
+            {/* Return in USD */}
+            <div className={cn(
+              "flex items-center justify-between p-3 rounded-lg",
+              position.returnUSD >= 0 ? "bg-success/10" : "bg-loss/10"
+            )}>
+              <div className="flex items-center gap-2">
+                <DollarSign className={cn(
+                  "w-4 h-4",
+                  position.returnUSD >= 0 ? "text-success" : "text-loss"
+                )} />
+                <span className="text-sm font-medium text-foreground">Retorno en USD</span>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button className="text-muted-foreground hover:text-foreground">
+                      <Info className="w-3.5 h-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-[250px]">
+                    <p>Cuanto gano o perdio la accion en Wall Street, sin importar lo que hizo el dolar.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <div className="flex items-center gap-1">
+                {position.returnUSD >= 0 ? (
+                  <TrendingUp className="w-4 h-4 text-success" />
                 ) : (
-                  <TrendingDown className="w-6 h-6 text-loss" />
+                  <TrendingDown className="w-4 h-4 text-loss" />
                 )}
                 <span className={cn(
-                  "text-3xl font-bold",
-                  isPositive ? "text-success" : "text-loss"
+                  "text-lg font-bold",
+                  position.returnUSD >= 0 ? "text-success" : "text-loss"
                 )}>
-                  {formatPercent(position.realReturn)}
+                  {formatPercent(position.returnUSD)}
+                </span>
+              </div>
+            </div>
+
+            {/* Return in ARS */}
+            <div className={cn(
+              "flex items-center justify-between p-3 rounded-lg",
+              position.returnARS >= 0 ? "bg-success/10" : "bg-loss/10"
+            )}>
+              <div className="flex items-center gap-2">
+                <Banknote className={cn(
+                  "w-4 h-4",
+                  position.returnARS >= 0 ? "text-success" : "text-loss"
+                )} />
+                <span className="text-sm font-medium text-foreground">Retorno en ARS</span>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button className="text-muted-foreground hover:text-foreground">
+                      <Info className="w-3.5 h-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-[250px]">
+                    <p>Cuanto ganas o perdes en pesos hoy si vendieras al precio teorico.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <div className="flex items-center gap-1">
+                {position.returnARS >= 0 ? (
+                  <TrendingUp className="w-4 h-4 text-success" />
+                ) : (
+                  <TrendingDown className="w-4 h-4 text-loss" />
+                )}
+                <span className={cn(
+                  "text-lg font-bold",
+                  position.returnARS >= 0 ? "text-success" : "text-loss"
+                )}>
+                  {formatPercent(position.returnARS)}
+                </span>
+              </div>
+            </div>
+
+            {/* CCL Effect */}
+            <div className={cn(
+              "flex items-center justify-between p-3 rounded-lg",
+              position.cclEffect >= 0 ? "bg-success/10" : "bg-loss/10"
+            )}>
+              <div className="flex items-center gap-2">
+                <ArrowUpDown className={cn(
+                  "w-4 h-4",
+                  position.cclEffect >= 0 ? "text-success" : "text-loss"
+                )} />
+                <span className="text-sm font-medium text-foreground">Efecto CCL</span>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button className="text-muted-foreground hover:text-foreground">
+                      <Info className="w-3.5 h-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-[250px]">
+                    <p>Cuanto de tu ganancia (o perdida) en pesos se debe a la variacion del tipo de cambio.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <div className="flex items-center gap-1">
+                {position.cclEffect >= 0 ? (
+                  <TrendingUp className="w-4 h-4 text-success" />
+                ) : (
+                  <TrendingDown className="w-4 h-4 text-loss" />
+                )}
+                <span className={cn(
+                  "text-lg font-bold",
+                  position.cclEffect >= 0 ? "text-success" : "text-loss"
+                )}>
+                  {formatPercent(position.cclEffect)}
                 </span>
               </div>
             </div>
@@ -141,19 +236,19 @@ export function PositionCard({ position, cclRate, onEdit, onDelete }: PositionCa
               </p>
             </div>
             <div className="p-2 rounded-lg bg-secondary/50">
-              <p className="text-xs text-muted-foreground">Precio Teórico</p>
+              <p className="text-xs text-muted-foreground">Precio Teorico</p>
               <p className="text-sm font-semibold text-foreground mt-1">
                 {formatARS(position.theoreticalPrice)}
               </p>
             </div>
             <div className={cn(
               "p-2 rounded-lg",
-              isPositive ? "bg-success/10" : "bg-loss/10"
+              isPositiveARS ? "bg-success/10" : "bg-loss/10"
             )}>
               <p className="text-xs text-muted-foreground">Diferencia</p>
               <p className={cn(
                 "text-sm font-semibold mt-1",
-                isPositive ? "text-success" : "text-loss"
+                isPositiveARS ? "text-success" : "text-loss"
               )}>
                 {formatARS(position.priceDifference)}
               </p>
@@ -177,6 +272,16 @@ export function PositionCard({ position, cclRate, onEdit, onDelete }: PositionCa
                 )}
               </span>
             </div>
+            <div className="flex items-center gap-2">
+              <BarChart3 className="w-4 h-4 text-muted-foreground" />
+              <span className="text-muted-foreground">CCL compra:</span>
+              <span className="font-medium text-foreground ml-auto">{formatARS(position.cclAtPurchase)}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <BarChart3 className="w-4 h-4 text-muted-foreground" />
+              <span className="text-muted-foreground">CCL actual:</span>
+              <span className="font-medium text-foreground ml-auto">{formatARS(cclRate)}</span>
+            </div>
           </div>
 
           {/* Investment summary */}
@@ -197,7 +302,7 @@ export function PositionCard({ position, cclRate, onEdit, onDelete }: PositionCa
               <span className="text-muted-foreground">P&L:</span>
               <span className={cn(
                 "font-semibold",
-                isPositive ? "text-success" : "text-loss"
+                isPositiveARS ? "text-success" : "text-loss"
               )}>
                 {formatARS(position.profitLoss)}
               </span>
@@ -212,7 +317,7 @@ export function PositionCard({ position, cclRate, onEdit, onDelete }: PositionCa
             </div>
             <div className="flex items-center gap-1">
               <Clock className="w-3 h-3" />
-              <span>{position.daysHeld} días</span>
+              <span>{position.daysHeld} dias</span>
             </div>
           </div>
         </CardContent>
@@ -221,9 +326,9 @@ export function PositionCard({ position, cclRate, onEdit, onDelete }: PositionCa
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Eliminar posición</AlertDialogTitle>
+            <AlertDialogTitle>Eliminar posicion</AlertDialogTitle>
             <AlertDialogDescription>
-              {`¿Estás seguro de que querés eliminar tu posición de ${position.ticker}? Esta acción no se puede deshacer.`}
+              {`Estas seguro de que queres eliminar tu posicion de ${position.ticker}? Esta accion no se puede deshacer.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -237,6 +342,6 @@ export function PositionCard({ position, cclRate, onEdit, onDelete }: PositionCa
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </TooltipProvider>
   )
 }

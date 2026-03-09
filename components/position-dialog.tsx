@@ -39,6 +39,7 @@ export function PositionDialog({ open, onOpenChange, position, onSave, mode }: P
   const [selectedCedear, setSelectedCedear] = useState<CEDEAR | null>(null)
   const [purchaseDate, setPurchaseDate] = useState<Date | undefined>(undefined)
   const [purchasePrice, setPurchasePrice] = useState('')
+  const [cclAtPurchase, setCclAtPurchase] = useState('')
   const [quantity, setQuantity] = useState('')
   const [stockPriceUSD, setStockPriceUSD] = useState('')
   const [customRatio, setCustomRatio] = useState('')
@@ -51,6 +52,7 @@ export function PositionDialog({ open, onOpenChange, position, onSave, mode }: P
         setSelectedCedear(cedear || null)
         setPurchaseDate(new Date(position.purchaseDate))
         setPurchasePrice(position.purchasePrice.toString())
+        setCclAtPurchase(position.cclAtPurchase.toString())
         setQuantity(position.quantity.toString())
         setStockPriceUSD(position.stockPriceUSD.toString())
         setUseCustomRatio(position.ratioOverridden)
@@ -59,6 +61,7 @@ export function PositionDialog({ open, onOpenChange, position, onSave, mode }: P
         setSelectedCedear(null)
         setPurchaseDate(undefined)
         setPurchasePrice('')
+        setCclAtPurchase('')
         setQuantity('')
         setStockPriceUSD('')
         setCustomRatio('')
@@ -75,7 +78,7 @@ export function PositionDialog({ open, onOpenChange, position, onSave, mode }: P
   }
 
   const handleSave = () => {
-    if (!selectedCedear || !purchaseDate || !purchasePrice || !quantity || !stockPriceUSD) {
+    if (!selectedCedear || !purchaseDate || !purchasePrice || !cclAtPurchase || !quantity || !stockPriceUSD) {
       return
     }
 
@@ -91,13 +94,14 @@ export function PositionDialog({ open, onOpenChange, position, onSave, mode }: P
       market: selectedCedear.market,
       purchaseDate: purchaseDate.toISOString(),
       purchasePrice: parseFloat(purchasePrice),
+      cclAtPurchase: parseFloat(cclAtPurchase),
       quantity: parseFloat(quantity),
       stockPriceUSD: parseFloat(stockPriceUSD),
     })
     onOpenChange(false)
   }
 
-  const isValid = selectedCedear && purchaseDate && purchasePrice && quantity && stockPriceUSD
+  const isValid = selectedCedear && purchaseDate && purchasePrice && cclAtPurchase && quantity && stockPriceUSD
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -170,18 +174,32 @@ export function PositionDialog({ open, onOpenChange, position, onSave, mode }: P
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="quantity">Cantidad</Label>
+              <Label htmlFor="cclAtPurchase">CCL al Comprar (ARS/USD)</Label>
               <Input
-                id="quantity"
+                id="cclAtPurchase"
                 type="number"
-                step="1"
-                min="1"
-                placeholder="ej: 10"
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
+                step="0.01"
+                min="0"
+                placeholder="ej: 1150"
+                value={cclAtPurchase}
+                onChange={(e) => setCclAtPurchase(e.target.value)}
                 className="bg-card"
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="quantity">Cantidad de CEDEARs</Label>
+            <Input
+              id="quantity"
+              type="number"
+              step="1"
+              min="1"
+              placeholder="ej: 10"
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+              className="bg-card"
+            />
           </div>
 
           <div className="space-y-2">
