@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { CalendarIcon, Info } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { CalendarIcon, Info, RefreshCw, Loader2, AlertCircle, Check } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Button } from '@/components/ui/button'
@@ -35,6 +35,8 @@ interface PositionDialogProps {
   mode: 'create' | 'edit'
 }
 
+type FetchStatus = 'idle' | 'loading' | 'success' | 'error'
+
 export function PositionDialog({ open, onOpenChange, position, onSave, mode }: PositionDialogProps) {
   const [selectedCedear, setSelectedCedear] = useState<CEDEAR | null>(null)
   const [purchaseDate, setPurchaseDate] = useState<Date | undefined>(undefined)
@@ -44,6 +46,26 @@ export function PositionDialog({ open, onOpenChange, position, onSave, mode }: P
   const [stockPriceUSD, setStockPriceUSD] = useState('')
   const [customRatio, setCustomRatio] = useState('')
   const [useCustomRatio, setUseCustomRatio] = useState(false)
+  const [priceFetchStatus, setPriceFetchStatus] = useState<FetchStatus>('idle')
+
+  const fetchStockPrice = useCallback(async (ticker: string) => {
+    setPriceFetchStatus('loading')
+    try {
+      const response = await fetch(`/api/stock/${encodeURIComponent(ticker)}`)
+      const data = await response.json()
+      
+      if (data.success && data.price) {
+        setStockPriceUSD(data.price.toFixed(2))
+        setPriceFetchStatus('success')
+        setTimeout(() => setPriceFetchStatus('idle'), 2000)
+      } else {
+        throw new Error(data.error || 'Failed to fetch price')
+      }
+    } catch (error) {
+      console.error(`Error fetching price for ${ticker}:`, error)
+      setPriceFetchStatus('error')
+    }
+  }, [])
 
   useEffect(() => {
     if (open) {
@@ -57,6 +79,11 @@ export function PositionDialog({ open, onOpenChange, position, onSave, mode }: P
         setStockPriceUSD(position.stockPriceUSD.toString())
         setUseCustomRatio(position.ratioOverridden)
         setCustomRatio(position.ratioOverridden ? position.ratio.toString() : '')
+        setPriceFetchStatus('idle')
+        // Fetch latest price on edit
+        if (cedear) {
+          fetchStockPrice(cedear.ticker)
+        }
       } else {
         setSelectedCedear(null)
         setPurchaseDate(undefined)
@@ -66,14 +93,28 @@ export function PositionDialog({ open, onOpenChange, position, onSave, mode }: P
         setStockPriceUSD('')
         setCustomRatio('')
         setUseCustomRatio(false)
+        setPriceFetchStatus('idle')
       }
     }
-  }, [open, mode, position])
+  }, [open, mode, position, fetchStockPrice])
 
   const handleCedearSelect = (cedear: CEDEAR | null) => {
     setSelectedCedear(cedear)
-    if (cedear && !useCustomRatio) {
-      setCustomRatio(cedear.ratio.toString())
+    if (cedear) {
+      if (!useCustomRatio) {
+        setCustomRatio(cedear.ratio.toString())
+      }
+      // Auto-fetch stock price when CEDEAR is selected
+      fetchStockPrice(cedear.ticker)
+    } else {
+      setStockPriceUSD('')
+      setPriceFetchStatus('idle')
+    }
+  }
+
+  const handleRefreshPrice = () => {
+    if (selectedCedear) {
+      fetchStockPrice(selectedCedear.ticker)
     }
   }
 
@@ -203,20 +244,54 @@ export function PositionDialog({ open, onOpenChange, position, onSave, mode }: P
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="stockPriceUSD">Precio del Activo (USD)</Label>
-            <Input
-              id="stockPriceUSD"
-              type="number"
-              step="0.01"
-              min="0"
-              placeholder="ej: 175.50"
-              value={stockPriceUSD}
-              onChange={(e) => setStockPriceUSD(e.target.value)}
-              className="bg-card"
-            />
+            <div className="flex items-center justify-between">
+              <Label htmlFor="stockPriceUSD">Precio del Activo (USD)</Label>
+              {selectedCedear && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleRefreshPrice}
+                  disabled={priceFetchStatus === 'loading'}
+                  className="h-6 px-2 text-xs"
+                >
+                  {priceFetchStatus === 'loading' ? (
+                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                  ) : priceFetchStatus === 'success' ? (
+                    <Check className="w-3 h-3 mr-1 text-green-600" />
+                  ) : priceFetchStatus === 'error' ? (
+                    <AlertCircle className="w-3 h-3 mr-1 text-red-500" />
+                  ) : (
+                    <RefreshCw className="w-3 h-3 mr-1" />
+                  )}
+                  {priceFetchStatus === 'loading' ? 'Cargando...' : 'Actualizar'}
+                </Button>
+              )}
+            </div>
+            <div className="relative">
+              <Input
+                id="stockPriceUSD"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder={priceFetchStatus === 'loading' ? 'Obteniendo precio...' : 'ej: 175.50'}
+                value={stockPriceUSD}
+                onChange={(e) => setStockPriceUSD(e.target.value)}
+                className={cn(
+                  "bg-card pr-10",
+                  priceFetchStatus === 'loading' && "opacity-50"
+                )}
+                disabled={priceFetchStatus === 'loading'}
+              />
+              {priceFetchStatus === 'loading' && (
+                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground animate-spin" />
+              )}
+            </div>
             <p className="text-xs text-muted-foreground flex items-center gap-1">
               <Info className="w-3 h-3" />
-              Precio actual de la acción en el mercado de origen
+              {priceFetchStatus === 'error' 
+                ? 'No se pudo obtener el precio. Ingresalo manualmente.'
+                : 'Precio actual de la acción en el mercado de origen (se obtiene automaticamente)'}
             </p>
           </div>
 
