@@ -244,4 +244,7 @@ export const CEDEARS: CEDEAR[] = [
   { ticker: "BSN", name: "Danone", ratio: 20, market: "FRANKFURT" },
   { ticker: "JMIA", name: "Jumia Technologies AG", ratio: 1, market: "NYSE" },
   { ticker: "AOBA", name: "Aluminum Corp of China", ratio: 1, market: "NYSE" },
+  { ticker: "SPY", name: "SPDR S&P 500 ETF", ratio: 50, market: "NYSE Arca" },
+  { ticker: "VIST", name: "Vista Energy", ratio: 3, market: "NYSE" },
+  { ticker: "UNP", name: "Union Pacific Corp.", ratio: 20, market: "NYSE" },
 ]
