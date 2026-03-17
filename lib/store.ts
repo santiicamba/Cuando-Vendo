@@ -6,7 +6,14 @@ const MARKET_DATA_KEY = 'cedear-market-data'
 export function getPositions(): Position[] {
   if (typeof window === 'undefined') return []
   const stored = localStorage.getItem(POSITIONS_KEY)
-  return stored ? JSON.parse(stored) : []
+  if (!stored) return []
+  const parsed: Position[] = JSON.parse(stored)
+  // Backwards compat: fill in fields added after initial release
+  return parsed.map(p => ({
+    previousCloseUSD: null,
+    priceFetchError: false,
+    ...p,
+  }))
 }
 
 export function savePositions(positions: Position[]): void {
@@ -51,10 +58,14 @@ export function deletePosition(id: string): boolean {
 
 export function getMarketData(): MarketData {
   if (typeof window === 'undefined') {
-    return { cclRate: 1200, lastUpdated: new Date().toISOString() }
+    return { cclRate: 1200, lastUpdated: new Date().toISOString(), lastPricesUpdated: null }
   }
   const stored = localStorage.getItem(MARKET_DATA_KEY)
-  return stored ? JSON.parse(stored) : { cclRate: 1200, lastUpdated: new Date().toISOString() }
+  if (!stored) return { cclRate: 1200, lastUpdated: new Date().toISOString(), lastPricesUpdated: null }
+  const parsed = JSON.parse(stored)
+  // Backwards compat: add missing field
+  if (!('lastPricesUpdated' in parsed)) parsed.lastPricesUpdated = null
+  return parsed
 }
 
 export function saveMarketData(data: MarketData): void {
@@ -63,9 +74,21 @@ export function saveMarketData(data: MarketData): void {
 }
 
 export function updateCCLRate(rate: number): MarketData {
+  const existing = getMarketData()
   const data: MarketData = {
+    ...existing,
     cclRate: rate,
     lastUpdated: new Date().toISOString(),
+  }
+  saveMarketData(data)
+  return data
+}
+
+export function updateLastPricesTimestamp(): MarketData {
+  const existing = getMarketData()
+  const data: MarketData = {
+    ...existing,
+    lastPricesUpdated: new Date().toISOString(),
   }
   saveMarketData(data)
   return data

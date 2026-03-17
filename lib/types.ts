@@ -7,9 +7,11 @@ export interface Position {
   market: string
   purchaseDate: string
   purchasePrice: number
-  cclAtPurchase: number // CCL rate at purchase date (ARS/USD)
+  cclAtPurchase: number
   quantity: number
   stockPriceUSD: number
+  previousCloseUSD: number | null  // previous session close from Yahoo Finance
+  priceFetchError: boolean          // true if last auto-fetch failed for this ticker
   createdAt: string
   updatedAt: string
 }
@@ -17,20 +19,25 @@ export interface Position {
 export interface MarketData {
   cclRate: number
   lastUpdated: string
+  lastPricesUpdated: string | null  // ISO timestamp of last successful bulk price refresh
 }
 
 export interface CalculatedPosition extends Position {
   theoreticalPrice: number
-  returnARS: number // Total return in ARS (includes stock + CCL movement)
-  returnUSD: number // Pure stock performance (CCL-neutral)
-  cclEffect: number // How much of ARS return is from exchange rate movement
+  returnARS: number
+  returnUSD: number
+  cclEffect: number
   totalInvested: number
   currentValue: number
   profitLoss: number
   daysHeld: number
   priceDifference: number
-  purchasePriceUSD: number // Purchase price converted to USD
-  currentPriceUSD: number // Current price in USD
+  purchasePriceUSD: number
+  currentPriceUSD: number
+  // Daily change fields
+  dailyChangeUSD: number | null      // stock price delta in USD vs previous close
+  dailyChangePercent: number | null  // % change vs previous close
+  dailyChangeARS: number | null      // ARS impact on position value today
 }
 
 export function calculatePosition(position: Position, cclRate: number): CalculatedPosition {
@@ -69,7 +76,19 @@ export function calculatePosition(position: Position, cclRate: number): Calculat
   
   // Price difference
   const priceDifference = theoreticalPrice - position.purchasePrice
-  
+
+  // Daily change (requires previousClose)
+  let dailyChangeUSD: number | null = null
+  let dailyChangePercent: number | null = null
+  let dailyChangeARS: number | null = null
+
+  if (position.previousCloseUSD !== null && position.previousCloseUSD !== undefined) {
+    dailyChangeUSD = position.stockPriceUSD - position.previousCloseUSD
+    dailyChangePercent = (dailyChangeUSD / position.previousCloseUSD) * 100
+    // ARS impact on full position: (currentStock - prevClose) / ratio * cclRate * quantity
+    dailyChangeARS = (dailyChangeUSD / position.ratio) * cclRate * position.quantity
+  }
+
   return {
     ...position,
     theoreticalPrice,
@@ -83,17 +102,22 @@ export function calculatePosition(position: Position, cclRate: number): Calculat
     priceDifference,
     purchasePriceUSD,
     currentPriceUSD,
+    dailyChangeUSD,
+    dailyChangePercent,
+    dailyChangeARS,
   }
 }
 
 export interface PortfolioSummary {
   totalInvested: number
   totalCurrentValue: number
-  overallReturnARS: number // Weighted average return in ARS
-  overallReturnUSD: number // Weighted average return in USD
-  overallCclEffect: number // Weighted average CCL effect
+  overallReturnARS: number
+  overallReturnUSD: number
+  overallCclEffect: number
   bestPerformer: CalculatedPosition | null
   worstPerformer: CalculatedPosition | null
+  dailyChangeARS: number | null         // combined ARS daily P&L across all positions
+  dailyChangePercent: number | null     // weighted average daily % change
 }
 
 export function calculatePortfolioSummary(positions: CalculatedPosition[]): PortfolioSummary {
@@ -106,13 +130,14 @@ export function calculatePortfolioSummary(positions: CalculatedPosition[]): Port
       overallCclEffect: 0,
       bestPerformer: null,
       worstPerformer: null,
+      dailyChangeARS: null,
+      dailyChangePercent: null,
     }
   }
   
   const totalInvested = positions.reduce((sum, p) => sum + p.totalInvested, 0)
   const totalCurrentValue = positions.reduce((sum, p) => sum + p.currentValue, 0)
   
-  // Weighted averages by position size (totalInvested)
   const overallReturnARS = totalInvested > 0 
     ? positions.reduce((sum, p) => sum + p.returnARS * p.totalInvested, 0) / totalInvested 
     : 0
@@ -122,7 +147,18 @@ export function calculatePortfolioSummary(positions: CalculatedPosition[]): Port
   const overallCclEffect = totalInvested > 0 
     ? positions.reduce((sum, p) => sum + p.cclEffect * p.totalInvested, 0) / totalInvested 
     : 0
-  
+
+  // Daily aggregates — only when at least one position has previousClose data
+  const positionsWithDaily = positions.filter(p => p.dailyChangeARS !== null)
+  const dailyChangeARS = positionsWithDaily.length > 0
+    ? positionsWithDaily.reduce((sum, p) => sum + (p.dailyChangeARS ?? 0), 0)
+    : null
+  // Weighted average daily % by totalInvested for positions with data
+  const dailyInvested = positionsWithDaily.reduce((sum, p) => sum + p.totalInvested, 0)
+  const dailyChangePercent = positionsWithDaily.length > 0 && dailyInvested > 0
+    ? positionsWithDaily.reduce((sum, p) => sum + (p.dailyChangePercent ?? 0) * p.totalInvested, 0) / dailyInvested
+    : null
+
   const sorted = [...positions].sort((a, b) => b.returnARS - a.returnARS)
   const bestPerformer = sorted[0] || null
   const worstPerformer = sorted[sorted.length - 1] || null
@@ -135,6 +171,8 @@ export function calculatePortfolioSummary(positions: CalculatedPosition[]): Port
     overallCclEffect,
     bestPerformer,
     worstPerformer,
+    dailyChangeARS,
+    dailyChangePercent,
   }
 }
 
@@ -158,4 +196,21 @@ export function formatUSD(value: number): string {
 
 export function formatPercent(value: number): string {
   return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`
+}
+
+/**
+ * Returns true when NYSE is currently open.
+ * NYSE hours: Mon–Fri 09:30–16:00 ET = 10:30–17:00 ART (UTC-3, no DST).
+ * We approximate using UTC offset: ART = UTC-3, so NYSE open = 12:30–21:00 UTC.
+ * Holidays are NOT checked — this is a best-effort indicator only.
+ */
+export function isNYSEOpen(): boolean {
+  const now = new Date()
+  const day = now.getUTCDay() // 0=Sun, 6=Sat
+  if (day === 0 || day === 6) return false
+  const hours = now.getUTCHours()
+  const minutes = now.getUTCMinutes()
+  const totalMinutes = hours * 60 + minutes
+  // 12:30 UTC = 750 min, 21:00 UTC = 1260 min
+  return totalMinutes >= 750 && totalMinutes < 1260
 }

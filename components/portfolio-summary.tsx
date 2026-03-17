@@ -57,7 +57,7 @@ export function PortfolioSummary({ summary }: PortfolioSummaryProps) {
           </CardContent>
         </Card>
 
-        {/* Three Returns Card */}
+        {/* Three Returns + Hoy Card */}
         <Card className="bg-card border-border/50 lg:col-span-1">
           <CardContent className="pt-0">
             <div className="space-y-2">
@@ -132,6 +132,26 @@ export function PortfolioSummary({ summary }: PortfolioSummaryProps) {
                   </span>
                 </div>
               </div>
+
+              {/* Hoy separator + row */}
+              {summary.dailyChangeARS !== null && summary.dailyChangePercent !== null && (
+                <>
+                  <div className="border-t border-border my-1" />
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-muted-foreground">Hoy</span>
+                    <span className={cn(
+                      "text-sm font-bold tabular-nums",
+                      summary.dailyChangePercent > 0 ? "text-success" :
+                      summary.dailyChangePercent < 0 ? "text-loss" :
+                      "text-muted-foreground"
+                    )}>
+                      {formatARS(summary.dailyChangeARS)}
+                      {' '}
+                      {formatPercent(summary.dailyChangePercent)}
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
           </CardContent>
         </Card>

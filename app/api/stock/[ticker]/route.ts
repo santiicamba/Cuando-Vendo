@@ -13,7 +13,7 @@ export async function GET(
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
       },
-      next: { revalidate: 60 }, // Cache for 1 minute
+      cache: 'no-store',
     })
 
     if (!response.ok) {

@@ -151,6 +151,8 @@ export function PositionDialog({ open, onOpenChange, position, onSave, mode }: P
       cclAtPurchase: parseFloat(cclAtPurchase),
       quantity: parseFloat(quantity),
       stockPriceUSD: parseFloat(stockPriceUSD),
+      previousCloseUSD: null,
+      priceFetchError: false,
     })
     onOpenChange(false)
   }

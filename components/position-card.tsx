@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Calendar, TrendingUp, TrendingDown, MoreVertical, Pencil, Trash2, DollarSign, Hash, Clock, Info, ArrowUpDown, Banknote, BarChart3 } from 'lucide-react'
+import { Calendar, TrendingUp, TrendingDown, MoreVertical, Pencil, Trash2, DollarSign, Clock, Info, ArrowUpDown, Banknote, BarChart3, AlertTriangle } from 'lucide-react'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -84,6 +84,19 @@ export function PositionCard({ position, cclRate, onEdit, onDelete, onRatioUpdat
                   <Badge variant="outline" className="text-xs">
                     {position.market}
                   </Badge>
+                  {position.priceFetchError && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex items-center gap-1 text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">
+                          <AlertTriangle className="w-3 h-3" />
+                          Precio desactualizado
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>No se pudo actualizar el precio. Mostrando el ultimo valor conocido.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
                 </div>
                 <p className="text-sm text-muted-foreground mt-1 line-clamp-1">
                   {position.name}
@@ -229,6 +242,45 @@ export function PositionCard({ position, cclRate, onEdit, onDelete, onRatioUpdat
               </div>
             </div>
           </div>
+
+          {/* Daily change row — "Hoy" */}
+          {(() => {
+            const hasDailyData = position.dailyChangePercent !== null && position.dailyChangeARS !== null
+            const isPositive = (position.dailyChangePercent ?? 0) > 0
+            const isZero = (position.dailyChangePercent ?? 0) === 0
+
+            return (
+              <div className={cn(
+                'flex items-center justify-between px-3 py-2 rounded-lg text-sm border',
+                !hasDailyData || isZero
+                  ? 'bg-muted/40 border-border text-muted-foreground'
+                  : isPositive
+                  ? 'bg-success/8 border-success/20'
+                  : 'bg-loss/8 border-loss/20',
+              )}>
+                <span className={cn(
+                  'font-medium',
+                  !hasDailyData || isZero
+                    ? 'text-muted-foreground'
+                    : isPositive ? 'text-success' : 'text-loss',
+                )}>
+                  Hoy
+                </span>
+                {hasDailyData ? (
+                  <span className={cn(
+                    'font-semibold tabular-nums',
+                    isZero ? 'text-muted-foreground' : isPositive ? 'text-success' : 'text-loss',
+                  )}>
+                    {formatARS(position.dailyChangeARS!)}
+                    {' '}
+                    {formatPercent(position.dailyChangePercent!)}
+                  </span>
+                ) : (
+                  <span className="text-xs text-muted-foreground">Sin datos</span>
+                )}
+              </div>
+            )
+          })()}
 
           {/* Price comparison */}
           <div className="grid grid-cols-3 gap-2 text-center">
