@@ -87,6 +87,24 @@ export function Dashboard() {
     }
   }, [positions])
 
+  const handleRatioUpdate = useCallback((positionId: string, newRatio: number) => {
+    const position = positions.find(p => p.id === positionId)
+    if (!position) return
+
+    const updated = updatePosition(positionId, {
+      ...position,
+      ratio: newRatio,
+      ratioOverridden: true,
+    })
+    
+    if (updated) {
+      setPositions(prev => prev.map(p => p.id === updated.id ? updated : p))
+      toast.success('Ratio actualizado', {
+        description: `Ratio de ${position.ticker} actualizado a ${newRatio}:1`,
+      })
+    }
+  }, [positions])
+
   const handleOpenDialog = useCallback(() => {
     setEditingPosition(null)
     setIsDialogOpen(true)
@@ -145,6 +163,7 @@ export function Dashboard() {
                     cclRate={marketData.cclRate}
                     onEdit={handleEditPosition}
                     onDelete={handleDeletePosition}
+                    onRatioUpdate={handleRatioUpdate}
                   />
                 </div>
               ))}

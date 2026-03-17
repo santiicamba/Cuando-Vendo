@@ -126,7 +126,7 @@ export function MarketDataPanel({ cclRate, onCCLChange }: MarketDataPanelProps) 
               )}
               {lastFetched && fetchStatus !== 'loading' && !isEditing && (
                 <p className="text-xs text-muted-foreground">
-                  Actualizado: {lastFetched.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
+                  Actualizado hoy a las {lastFetched.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false })}
                 </p>
               )}
             </div>

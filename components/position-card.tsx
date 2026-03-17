@@ -27,6 +27,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { RatioCorrectionModal } from '@/components/ratio-correction-modal'
 import { CalculatedPosition, formatARS, formatUSD, formatPercent } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
@@ -35,10 +36,12 @@ interface PositionCardProps {
   cclRate: number
   onEdit: (position: CalculatedPosition) => void
   onDelete: (id: string) => void
+  onRatioUpdate: (positionId: string, newRatio: number) => void
 }
 
-export function PositionCard({ position, cclRate, onEdit, onDelete }: PositionCardProps) {
+export function PositionCard({ position, cclRate, onEdit, onDelete, onRatioUpdate }: PositionCardProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [showRatioModal, setShowRatioModal] = useState(false)
   const isPositiveARS = position.returnARS >= 0
 
   const formatDate = (dateString: string) => {
@@ -255,22 +258,23 @@ export function PositionCard({ position, cclRate, onEdit, onDelete }: PositionCa
             </div>
           </div>
 
+          {/* Ratio correction hint */}
+          <div className="text-xs text-muted-foreground flex items-center justify-between">
+            <span>El precio teórico no coincide con el de tu broker?</span>
+            <button
+              onClick={() => setShowRatioModal(true)}
+              className="text-primary hover:underline font-medium"
+            >
+              Corregir ratio
+            </button>
+          </div>
+
           {/* Details grid */}
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div className="flex items-center gap-2">
               <DollarSign className="w-4 h-4 text-muted-foreground" />
               <span className="text-muted-foreground">Stock USD:</span>
               <span className="font-medium text-foreground ml-auto">{formatUSD(position.stockPriceUSD)}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Hash className="w-4 h-4 text-muted-foreground" />
-              <span className="text-muted-foreground">Ratio:</span>
-              <span className="font-medium text-foreground ml-auto">
-                {position.ratio}
-                {position.ratioOverridden && (
-                  <span className="text-xs text-primary ml-1">(mod)</span>
-                )}
-              </span>
             </div>
             <div className="flex items-center gap-2">
               <BarChart3 className="w-4 h-4 text-muted-foreground" />
@@ -342,6 +346,13 @@ export function PositionCard({ position, cclRate, onEdit, onDelete }: PositionCa
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <RatioCorrectionModal
+        open={showRatioModal}
+        onOpenChange={setShowRatioModal}
+        currentRatio={position.ratio}
+        onSave={(newRatio) => onRatioUpdate(position.id, newRatio)}
+      />
     </TooltipProvider>
   )
 }

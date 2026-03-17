@@ -127,6 +127,19 @@ export function PositionDialog({ open, onOpenChange, position, onSave, mode }: P
       ? parseFloat(customRatio)
       : selectedCedear.ratio
 
+    // Check if theoretical price differs from purchase price by more than 70%
+    const theoreticalPrice = (parseFloat(stockPriceUSD) / effectiveRatio) * parseFloat(cclAtPurchase)
+    const priceDifference = Math.abs((theoreticalPrice - parseFloat(purchasePrice)) / parseFloat(purchasePrice))
+
+    if (priceDifference > 0.7) {
+      const shouldContinue = window.confirm(
+        'El precio teórico difiere mucho del precio de compra. Es posible que el ratio esté incorrecto. Verificá en byma.com.ar/cedears antes de continuar. ¿Deseas continuar igual?'
+      )
+      if (!shouldContinue) {
+        return
+      }
+    }
+
     onSave({
       ticker: selectedCedear.ticker,
       name: selectedCedear.name,
@@ -322,6 +335,13 @@ export function PositionDialog({ open, onOpenChange, position, onSave, mode }: P
                 className="bg-card"
               />
             )}
+            
+            <p className="text-xs text-muted-foreground">
+              Verificá que el ratio coincida con el de tu broker antes de guardar. Podés consultarlo en{' '}
+              <a href="https://byma.com.ar/cedears" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                byma.com.ar/cedears
+              </a>
+            </p>
           </div>
         </div>
 
