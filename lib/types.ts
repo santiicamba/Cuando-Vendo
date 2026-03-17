@@ -21,6 +21,9 @@ export interface Position {
   currentStockPriceUSD: number
   previousCloseUSD: number | null
   priceFetchError: boolean
+  // Optional personal targets (USD return %)
+  targetGainUSD: number | null   // e.g. 20 means +20%
+  stopLossUSD: number | null     // e.g. -10 means -10%
   createdAt: string
   updatedAt: string
 }

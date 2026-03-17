@@ -37,6 +37,8 @@ interface PositionDialogProps {
     ratioOverridden: boolean
     market: string
     purchase: Omit<Purchase, 'id'>
+    targetGainUSD: number | null
+    stopLossUSD: number | null
   }) => void
 }
 
@@ -52,6 +54,8 @@ export function PositionDialog({ open, onOpenChange, onSave }: PositionDialogPro
   const [customRatio, setCustomRatio] = useState('')
   const [useCustomRatio, setUseCustomRatio] = useState(false)
   const [priceFetchStatus, setPriceFetchStatus] = useState<FetchStatus>('idle')
+  const [targetGainUSD, setTargetGainUSD] = useState('')
+  const [stopLossUSD, setStopLossUSD] = useState('')
 
   const fetchStockPrice = useCallback(async (ticker: string) => {
     setPriceFetchStatus('loading')
@@ -83,6 +87,8 @@ export function PositionDialog({ open, onOpenChange, onSave }: PositionDialogPro
       setCustomRatio('')
       setUseCustomRatio(false)
       setPriceFetchStatus('idle')
+      setTargetGainUSD('')
+      setStopLossUSD('')
     }
   }, [open])
 
@@ -140,6 +146,8 @@ export function PositionDialog({ open, onOpenChange, onSave }: PositionDialogPro
         cclAtPurchase: parseFloat(cclAtPurchase),
         stockPriceUSD: parseFloat(stockPriceUSD),
       },
+      targetGainUSD: targetGainUSD ? parseFloat(targetGainUSD) : null,
+      stopLossUSD: stopLossUSD ? parseFloat(stopLossUSD) : null,
     })
     onOpenChange(false)
   }
@@ -325,6 +333,45 @@ export function PositionDialog({ open, onOpenChange, onSave }: PositionDialogPro
               <a href="https://byma.com.ar/cedears" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
                 byma.com.ar/cedears
               </a>
+            </p>
+          </div>
+
+          {/* Optional target fields */}
+          <div className="border border-border rounded-lg p-4 space-y-3">
+            <div>
+              <p className="text-sm font-medium text-foreground">Mi objetivo</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Opcional — podes completar esto despues</p>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="targetGainUSD" className="text-xs">Objetivo de ganancia en USD (%)</Label>
+                <Input
+                  id="targetGainUSD"
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  placeholder="ej: 20"
+                  value={targetGainUSD}
+                  onChange={(e) => setTargetGainUSD(e.target.value)}
+                  className="bg-card"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="stopLossUSD" className="text-xs">Limite de perdida en USD (%)</Label>
+                <Input
+                  id="stopLossUSD"
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  placeholder="ej: 10"
+                  value={stopLossUSD}
+                  onChange={(e) => setStopLossUSD(e.target.value)}
+                  className="bg-card"
+                />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Ingresa el porcentaje de ganancia o perdida que defines como tu objetivo. Se mostrara una barra de progreso en la tarjeta.
             </p>
           </div>
         </div>

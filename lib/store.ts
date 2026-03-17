@@ -71,9 +71,11 @@ export function getPositions(): Position[] {
       needsSave = true
       return migratePosition(p)
     }
-    // Ensure new fields exist
+    // Ensure new fields exist (including optional target fields)
     const pos = p as Position
     return {
+      targetGainUSD: null,
+      stopLossUSD: null,
       ...pos,
       currentStockPriceUSD: pos.currentStockPriceUSD ?? 0,
       previousCloseUSD: pos.previousCloseUSD ?? null,
@@ -139,6 +141,8 @@ export function addPosition(data: {
     currentStockPriceUSD: data.purchase.stockPriceUSD,
     previousCloseUSD: null,
     priceFetchError: false,
+    targetGainUSD: null,
+    stopLossUSD: null,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   }

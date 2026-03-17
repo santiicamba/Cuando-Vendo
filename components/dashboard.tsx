@@ -10,6 +10,7 @@ import { PortfolioSummary } from '@/components/portfolio-summary'
 import { PositionCard } from '@/components/position-card'
 import { PositionDialog } from '@/components/position-dialog'
 import { EmptyState } from '@/components/empty-state'
+import { WelcomeModal } from '@/components/welcome-modal'
 import {
   Position,
   Purchase,
@@ -174,8 +175,17 @@ export function Dashboard() {
     ratioOverridden: boolean
     market: string
     purchase: Omit<Purchase, 'id'>
+    targetGainUSD: number | null
+    stopLossUSD: number | null
   }) => {
     const newPosition = addPosition(data)
+    // Persist optional targets after creation
+    if (data.targetGainUSD !== null || data.stopLossUSD !== null) {
+      updatePosition(newPosition.id, {
+        targetGainUSD: data.targetGainUSD,
+        stopLossUSD: data.stopLossUSD,
+      })
+    }
     setPositions(getPositions())
     toast.success('Posicion agregada', {
       description: `${data.ticker} agregado a tu portfolio`,
@@ -258,6 +268,16 @@ export function Dashboard() {
     }
   }, [positions])
 
+  const handleUpdateTargets = useCallback((positionId: string, targetGainUSD: number | null, stopLossUSD: number | null) => {
+    const updated = updatePosition(positionId, { targetGainUSD, stopLossUSD })
+    if (updated) {
+      setPositions(getPositions())
+      toast.success('Objetivo guardado', {
+        description: `Objetivo de ${updated.ticker} actualizado`,
+      })
+    }
+  }, [])
+
   const handleOpenDialog = useCallback(() => {
     setIsDialogOpen(true)
   }, [])
@@ -281,6 +301,7 @@ export function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background">
+      <WelcomeModal />
       <Header />
 
       {/* Offline banner */}
@@ -331,6 +352,7 @@ export function Dashboard() {
                     onAddPurchase={handleAddPurchase}
                     onEditPurchase={handleEditPurchase}
                     onDeletePurchase={handleDeletePurchase}
+                    onUpdateTargets={handleUpdateTargets}
                   />
                 </div>
               ))}
@@ -356,6 +378,13 @@ export function Dashboard() {
         onOpenChange={setIsDialogOpen}
         onSave={handleAddPosition}
       />
+
+      {/* Permanent disclaimer */}
+      <footer className="container mx-auto px-4 py-8 mt-4">
+        <p className="text-xs text-muted-foreground/70 text-center leading-relaxed max-w-2xl mx-auto">
+          Cuando Vendo? es una herramienta de seguimiento y calculo de inversiones personales. La informacion que muestra es de caracter informativo y no constituye asesoramiento financiero, legal ni impositivo. Las metas y limites que configuras son decisiones personales tuyas. Consulta con un asesor certificado ante la CNV antes de tomar cualquier decision de inversion.
+        </p>
+      </footer>
     </div>
   )
 }
