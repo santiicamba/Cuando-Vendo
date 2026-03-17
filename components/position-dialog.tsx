@@ -23,24 +23,29 @@ import {
 } from '@/components/ui/popover'
 import { Switch } from '@/components/ui/switch'
 import { CEDEARCombobox } from '@/components/cedear-combobox'
-import { Position, CalculatedPosition } from '@/lib/types'
+import { Purchase } from '@/lib/types'
 import { CEDEARS, type CEDEAR } from '@/lib/cedears'
 import { cn } from '@/lib/utils'
 
 interface PositionDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  position?: CalculatedPosition | null
-  onSave: (data: Omit<Position, 'id' | 'createdAt' | 'updatedAt'>) => void
-  mode: 'create' | 'edit'
+  onSave: (data: {
+    ticker: string
+    name: string
+    ratio: number
+    ratioOverridden: boolean
+    market: string
+    purchase: Omit<Purchase, 'id'>
+  }) => void
 }
 
 type FetchStatus = 'idle' | 'loading' | 'success' | 'error'
 
-export function PositionDialog({ open, onOpenChange, position, onSave, mode }: PositionDialogProps) {
+export function PositionDialog({ open, onOpenChange, onSave }: PositionDialogProps) {
   const [selectedCedear, setSelectedCedear] = useState<CEDEAR | null>(null)
   const [purchaseDate, setPurchaseDate] = useState<Date | undefined>(undefined)
-  const [purchasePrice, setPurchasePrice] = useState('')
+  const [priceARS, setPriceARS] = useState('')
   const [cclAtPurchase, setCclAtPurchase] = useState('')
   const [quantity, setQuantity] = useState('')
   const [stockPriceUSD, setStockPriceUSD] = useState('')
@@ -69,34 +74,17 @@ export function PositionDialog({ open, onOpenChange, position, onSave, mode }: P
 
   useEffect(() => {
     if (open) {
-      if (mode === 'edit' && position) {
-        const cedear = CEDEARS.find(c => c.ticker === position.ticker)
-        setSelectedCedear(cedear || null)
-        setPurchaseDate(new Date(position.purchaseDate))
-        setPurchasePrice(position.purchasePrice.toString())
-        setCclAtPurchase(position.cclAtPurchase.toString())
-        setQuantity(position.quantity.toString())
-        setStockPriceUSD(position.stockPriceUSD.toString())
-        setUseCustomRatio(position.ratioOverridden)
-        setCustomRatio(position.ratioOverridden ? position.ratio.toString() : '')
-        setPriceFetchStatus('idle')
-        // Fetch latest price on edit
-        if (cedear) {
-          fetchStockPrice(cedear.ticker)
-        }
-      } else {
-        setSelectedCedear(null)
-        setPurchaseDate(undefined)
-        setPurchasePrice('')
-        setCclAtPurchase('')
-        setQuantity('')
-        setStockPriceUSD('')
-        setCustomRatio('')
-        setUseCustomRatio(false)
-        setPriceFetchStatus('idle')
-      }
+      setSelectedCedear(null)
+      setPurchaseDate(undefined)
+      setPriceARS('')
+      setCclAtPurchase('')
+      setQuantity('')
+      setStockPriceUSD('')
+      setCustomRatio('')
+      setUseCustomRatio(false)
+      setPriceFetchStatus('idle')
     }
-  }, [open, mode, position, fetchStockPrice])
+  }, [open])
 
   const handleCedearSelect = (cedear: CEDEAR | null) => {
     setSelectedCedear(cedear)
@@ -104,7 +92,6 @@ export function PositionDialog({ open, onOpenChange, position, onSave, mode }: P
       if (!useCustomRatio) {
         setCustomRatio(cedear.ratio.toString())
       }
-      // Auto-fetch stock price when CEDEAR is selected
       fetchStockPrice(cedear.ticker)
     } else {
       setStockPriceUSD('')
@@ -119,7 +106,7 @@ export function PositionDialog({ open, onOpenChange, position, onSave, mode }: P
   }
 
   const handleSave = () => {
-    if (!selectedCedear || !purchaseDate || !purchasePrice || !cclAtPurchase || !quantity || !stockPriceUSD) {
+    if (!selectedCedear || !purchaseDate || !priceARS || !cclAtPurchase || !quantity || !stockPriceUSD) {
       return
     }
 
@@ -129,11 +116,11 @@ export function PositionDialog({ open, onOpenChange, position, onSave, mode }: P
 
     // Check if theoretical price differs from purchase price by more than 70%
     const theoreticalPrice = (parseFloat(stockPriceUSD) / effectiveRatio) * parseFloat(cclAtPurchase)
-    const priceDifference = Math.abs((theoreticalPrice - parseFloat(purchasePrice)) / parseFloat(purchasePrice))
+    const priceDifference = Math.abs((theoreticalPrice - parseFloat(priceARS)) / parseFloat(priceARS))
 
     if (priceDifference > 0.7) {
       const shouldContinue = window.confirm(
-        'El precio teórico difiere mucho del precio de compra. Es posible que el ratio esté incorrecto. Verificá en byma.com.ar/cedears antes de continuar. ¿Deseas continuar igual?'
+        'El precio teorico difiere mucho del precio de compra. Es posible que el ratio este incorrecto. Verificá en byma.com.ar/cedears antes de continuar. Deseas continuar igual?'
       )
       if (!shouldContinue) {
         return
@@ -146,30 +133,26 @@ export function PositionDialog({ open, onOpenChange, position, onSave, mode }: P
       ratio: effectiveRatio,
       ratioOverridden: useCustomRatio,
       market: selectedCedear.market,
-      purchaseDate: purchaseDate.toISOString(),
-      purchasePrice: parseFloat(purchasePrice),
-      cclAtPurchase: parseFloat(cclAtPurchase),
-      quantity: parseFloat(quantity),
-      stockPriceUSD: parseFloat(stockPriceUSD),
-      previousCloseUSD: null,
-      priceFetchError: false,
+      purchase: {
+        date: purchaseDate.toISOString(),
+        quantity: parseFloat(quantity),
+        priceARS: parseFloat(priceARS),
+        cclAtPurchase: parseFloat(cclAtPurchase),
+        stockPriceUSD: parseFloat(stockPriceUSD),
+      },
     })
     onOpenChange(false)
   }
 
-  const isValid = selectedCedear && purchaseDate && purchasePrice && cclAtPurchase && quantity && stockPriceUSD
+  const isValid = selectedCedear && purchaseDate && priceARS && cclAtPurchase && quantity && stockPriceUSD
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>
-            {mode === 'create' ? 'Agregar Posición' : 'Editar Posición'}
-          </DialogTitle>
+          <DialogTitle>Agregar Posicion</DialogTitle>
           <DialogDescription>
-            {mode === 'create' 
-              ? 'Agregá una nueva posición de CEDEAR a tu portfolio.' 
-              : 'Modificá los datos de tu posición.'}
+            Agrega una nueva posicion de CEDEAR a tu portfolio.
           </DialogDescription>
         </DialogHeader>
 
@@ -179,7 +162,6 @@ export function PositionDialog({ open, onOpenChange, position, onSave, mode }: P
             <CEDEARCombobox
               value={selectedCedear?.ticker || ''}
               onSelect={handleCedearSelect}
-              disabled={mode === 'edit'}
             />
           </div>
 
@@ -215,35 +197,6 @@ export function PositionDialog({ open, onOpenChange, position, onSave, mode }: P
             </Popover>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="purchasePrice">Precio de Compra (ARS)</Label>
-              <Input
-                id="purchasePrice"
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder="ej: 15000"
-                value={purchasePrice}
-                onChange={(e) => setPurchasePrice(e.target.value)}
-                className="bg-card"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="cclAtPurchase">CCL al Comprar (ARS/USD)</Label>
-              <Input
-                id="cclAtPurchase"
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder="ej: 1150"
-                value={cclAtPurchase}
-                onChange={(e) => setCclAtPurchase(e.target.value)}
-                className="bg-card"
-              />
-            </div>
-          </div>
-
           <div className="space-y-2">
             <Label htmlFor="quantity">Cantidad de CEDEARs</Label>
             <Input
@@ -256,6 +209,35 @@ export function PositionDialog({ open, onOpenChange, position, onSave, mode }: P
               onChange={(e) => setQuantity(e.target.value)}
               className="bg-card"
             />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="priceARS">Precio por Unidad (ARS)</Label>
+              <Input
+                id="priceARS"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="ej: 15000"
+                value={priceARS}
+                onChange={(e) => setPriceARS(e.target.value)}
+                className="bg-card"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cclAtPurchase">CCL al Comprar</Label>
+              <Input
+                id="cclAtPurchase"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="ej: 1150"
+                value={cclAtPurchase}
+                onChange={(e) => setCclAtPurchase(e.target.value)}
+                className="bg-card"
+              />
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -306,7 +288,7 @@ export function PositionDialog({ open, onOpenChange, position, onSave, mode }: P
               <Info className="w-3 h-3" />
               {priceFetchStatus === 'error' 
                 ? 'No se pudo obtener el precio. Ingresalo manualmente.'
-                : 'Precio actual de la acción en el mercado de origen (se obtiene automaticamente)'}
+                : 'Precio actual de la accion en el mercado de origen'}
             </p>
           </div>
 
@@ -339,7 +321,7 @@ export function PositionDialog({ open, onOpenChange, position, onSave, mode }: P
             )}
             
             <p className="text-xs text-muted-foreground">
-              Verificá que el ratio coincida con el de tu broker antes de guardar. Podés consultarlo en{' '}
+              Verifica que el ratio coincida con el de tu broker. Podés consultarlo en{' '}
               <a href="https://byma.com.ar/cedears" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
                 byma.com.ar/cedears
               </a>
@@ -352,7 +334,7 @@ export function PositionDialog({ open, onOpenChange, position, onSave, mode }: P
             Cancelar
           </Button>
           <Button onClick={handleSave} disabled={!isValid}>
-            {mode === 'create' ? 'Agregar Posición' : 'Guardar Cambios'}
+            Agregar Posicion
           </Button>
         </DialogFooter>
       </DialogContent>

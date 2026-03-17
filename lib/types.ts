@@ -1,3 +1,14 @@
+// Individual purchase entry within a position
+export interface Purchase {
+  id: string
+  date: string
+  quantity: number
+  priceARS: number
+  cclAtPurchase: number
+  stockPriceUSD: number
+}
+
+// Position with multiple purchases
 export interface Position {
   id: string
   ticker: string
@@ -5,13 +16,11 @@ export interface Position {
   ratio: number
   ratioOverridden: boolean
   market: string
-  purchaseDate: string
-  purchasePrice: number
-  cclAtPurchase: number
-  quantity: number
-  stockPriceUSD: number
-  previousCloseUSD: number | null  // previous session close from Yahoo Finance
-  priceFetchError: boolean          // true if last auto-fetch failed for this ticker
+  purchases: Purchase[]
+  // Live market data (updated by refresh)
+  currentStockPriceUSD: number
+  previousCloseUSD: number | null
+  priceFetchError: boolean
   createdAt: string
   updatedAt: string
 }
@@ -19,92 +28,124 @@ export interface Position {
 export interface MarketData {
   cclRate: number
   lastUpdated: string
-  lastPricesUpdated: string | null  // ISO timestamp of last successful bulk price refresh
+  lastPricesUpdated: string | null
 }
 
+// Calculated values derived from purchases and current market data
 export interface CalculatedPosition extends Position {
+  // Weighted averages from purchases
+  totalQuantity: number
+  avgPurchasePriceARS: number
+  avgCclAtPurchase: number
+  avgStockPriceUSD: number
+  totalInvested: number
+  // Current values
   theoreticalPrice: number
+  currentValue: number
+  profitLoss: number
+  priceDifference: number
+  // Returns (using weighted averages as base)
   returnARS: number
   returnUSD: number
   cclEffect: number
-  totalInvested: number
-  currentValue: number
-  profitLoss: number
-  daysHeld: number
-  priceDifference: number
   purchasePriceUSD: number
   currentPriceUSD: number
-  // Daily change fields
-  dailyChangeUSD: number | null      // stock price delta in USD vs previous close
-  dailyChangePercent: number | null  // % change vs previous close
-  dailyChangeARS: number | null      // ARS impact on position value today
+  // Daily change
+  dailyChangeUSD: number | null
+  dailyChangePercent: number | null
+  dailyChangeARS: number | null
+  // Duration
+  firstPurchaseDate: string
+  daysHeld: number
 }
 
 export function calculatePosition(position: Position, cclRate: number): CalculatedPosition {
-  // Theoretical Price (ARS) = (Stock price in USD / Ratio) × CCL rate
-  const theoreticalPrice = (position.stockPriceUSD / position.ratio) * cclRate
+  const purchases = position.purchases
   
-  // 1. Return in ARS (total return including stock + exchange rate movement)
-  // Return ARS % = (Theoretical Price / Purchase Price in ARS − 1) × 100
-  const returnARS = ((theoreticalPrice / position.purchasePrice) - 1) * 100
+  // Calculate totals and weighted averages
+  const totalQuantity = purchases.reduce((sum, p) => sum + p.quantity, 0)
+  const totalInvested = purchases.reduce((sum, p) => sum + p.quantity * p.priceARS, 0)
   
-  // 2. Return in USD (pure stock performance, CCL-neutral)
-  // Purchase price in USD = Purchase price in ARS / CCL at purchase
-  const purchasePriceUSD = position.purchasePrice / position.cclAtPurchase
-  // Current price in USD = Stock price in USD / Ratio
-  const currentPriceUSD = position.stockPriceUSD / position.ratio
-  // Return USD % = (Current price in USD / Purchase price in USD − 1) × 100
-  const returnUSD = ((currentPriceUSD / purchasePriceUSD) - 1) * 100
-  
-  // 3. CCL Effect (how much of ARS return is from exchange rate movement)
-  // CCL Effect % = (CCL today / CCL at purchase − 1) × 100
-  const cclEffect = ((cclRate / position.cclAtPurchase) - 1) * 100
-  
-  // Total invested ARS
-  const totalInvested = position.purchasePrice * position.quantity
+  // Weighted averages
+  const avgPurchasePriceARS = totalQuantity > 0 
+    ? totalInvested / totalQuantity 
+    : 0
+  const avgCclAtPurchase = totalQuantity > 0 
+    ? purchases.reduce((sum, p) => sum + p.quantity * p.cclAtPurchase, 0) / totalQuantity 
+    : 0
+  const avgStockPriceUSD = totalQuantity > 0 
+    ? purchases.reduce((sum, p) => sum + p.quantity * p.stockPriceUSD, 0) / totalQuantity 
+    : 0
+
+  // Theoretical Price (ARS) = (Current stock price in USD / Ratio) × CCL rate
+  const theoreticalPrice = (position.currentStockPriceUSD / position.ratio) * cclRate
   
   // Current value ARS
-  const currentValue = theoreticalPrice * position.quantity
+  const currentValue = theoreticalPrice * totalQuantity
   
   // P&L in ARS
   const profitLoss = currentValue - totalInvested
   
-  // Days held
-  const purchaseDate = new Date(position.purchaseDate)
-  const today = new Date()
-  const daysHeld = Math.floor((today.getTime() - purchaseDate.getTime()) / (1000 * 60 * 60 * 24))
-  
-  // Price difference
-  const priceDifference = theoreticalPrice - position.purchasePrice
+  // Price difference per unit
+  const priceDifference = theoreticalPrice - avgPurchasePriceARS
 
-  // Daily change (requires previousClose)
+  // 1. Return in ARS (total return including stock + exchange rate movement)
+  const returnARS = avgPurchasePriceARS > 0 
+    ? ((theoreticalPrice / avgPurchasePriceARS) - 1) * 100 
+    : 0
+  
+  // 2. Return in USD (pure stock performance, CCL-neutral)
+  const purchasePriceUSD = avgCclAtPurchase > 0 
+    ? avgPurchasePriceARS / avgCclAtPurchase 
+    : 0
+  const currentPriceUSD = position.currentStockPriceUSD / position.ratio
+  const returnUSD = purchasePriceUSD > 0 
+    ? ((currentPriceUSD / purchasePriceUSD) - 1) * 100 
+    : 0
+  
+  // 3. CCL Effect
+  const cclEffect = avgCclAtPurchase > 0 
+    ? ((cclRate / avgCclAtPurchase) - 1) * 100 
+    : 0
+
+  // Days held (from first purchase)
+  const sortedPurchases = [...purchases].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+  const firstPurchaseDate = sortedPurchases[0]?.date || position.createdAt
+  const today = new Date()
+  const daysHeld = Math.floor((today.getTime() - new Date(firstPurchaseDate).getTime()) / (1000 * 60 * 60 * 24))
+
+  // Daily change
   let dailyChangeUSD: number | null = null
   let dailyChangePercent: number | null = null
   let dailyChangeARS: number | null = null
 
-  if (position.previousCloseUSD !== null && position.previousCloseUSD !== undefined) {
-    dailyChangeUSD = position.stockPriceUSD - position.previousCloseUSD
+  if (position.previousCloseUSD !== null) {
+    dailyChangeUSD = position.currentStockPriceUSD - position.previousCloseUSD
     dailyChangePercent = (dailyChangeUSD / position.previousCloseUSD) * 100
-    // ARS impact on full position: (currentStock - prevClose) / ratio * cclRate * quantity
-    dailyChangeARS = (dailyChangeUSD / position.ratio) * cclRate * position.quantity
+    dailyChangeARS = (dailyChangeUSD / position.ratio) * cclRate * totalQuantity
   }
 
   return {
     ...position,
+    totalQuantity,
+    avgPurchasePriceARS,
+    avgCclAtPurchase,
+    avgStockPriceUSD,
+    totalInvested,
     theoreticalPrice,
+    currentValue,
+    profitLoss,
+    priceDifference,
     returnARS,
     returnUSD,
     cclEffect,
-    totalInvested,
-    currentValue,
-    profitLoss,
-    daysHeld,
-    priceDifference,
     purchasePriceUSD,
     currentPriceUSD,
     dailyChangeUSD,
     dailyChangePercent,
     dailyChangeARS,
+    firstPurchaseDate,
+    daysHeld,
   }
 }
 
@@ -116,8 +157,8 @@ export interface PortfolioSummary {
   overallCclEffect: number
   bestPerformer: CalculatedPosition | null
   worstPerformer: CalculatedPosition | null
-  dailyChangeARS: number | null         // combined ARS daily P&L across all positions
-  dailyChangePercent: number | null     // weighted average daily % change
+  dailyChangeARS: number | null
+  dailyChangePercent: number | null
 }
 
 export function calculatePortfolioSummary(positions: CalculatedPosition[]): PortfolioSummary {
@@ -148,12 +189,10 @@ export function calculatePortfolioSummary(positions: CalculatedPosition[]): Port
     ? positions.reduce((sum, p) => sum + p.cclEffect * p.totalInvested, 0) / totalInvested 
     : 0
 
-  // Daily aggregates — only when at least one position has previousClose data
   const positionsWithDaily = positions.filter(p => p.dailyChangeARS !== null)
   const dailyChangeARS = positionsWithDaily.length > 0
     ? positionsWithDaily.reduce((sum, p) => sum + (p.dailyChangeARS ?? 0), 0)
     : null
-  // Weighted average daily % by totalInvested for positions with data
   const dailyInvested = positionsWithDaily.reduce((sum, p) => sum + p.totalInvested, 0)
   const dailyChangePercent = positionsWithDaily.length > 0 && dailyInvested > 0
     ? positionsWithDaily.reduce((sum, p) => sum + (p.dailyChangePercent ?? 0) * p.totalInvested, 0) / dailyInvested
@@ -198,19 +237,12 @@ export function formatPercent(value: number): string {
   return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`
 }
 
-/**
- * Returns true when NYSE is currently open.
- * NYSE hours: Mon–Fri 09:30–16:00 ET = 10:30–17:00 ART (UTC-3, no DST).
- * We approximate using UTC offset: ART = UTC-3, so NYSE open = 12:30–21:00 UTC.
- * Holidays are NOT checked — this is a best-effort indicator only.
- */
 export function isNYSEOpen(): boolean {
   const now = new Date()
-  const day = now.getUTCDay() // 0=Sun, 6=Sat
+  const day = now.getUTCDay()
   if (day === 0 || day === 6) return false
   const hours = now.getUTCHours()
   const minutes = now.getUTCMinutes()
   const totalMinutes = hours * 60 + minutes
-  // 12:30 UTC = 750 min, 21:00 UTC = 1260 min
   return totalMinutes >= 750 && totalMinutes < 1260
 }

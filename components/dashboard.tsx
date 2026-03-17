@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Plus, RefreshCw, WifiOff } from 'lucide-react'
+import { Plus, WifiOff } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Header } from '@/components/header'
@@ -10,9 +10,9 @@ import { PortfolioSummary } from '@/components/portfolio-summary'
 import { PositionCard } from '@/components/position-card'
 import { PositionDialog } from '@/components/position-dialog'
 import { EmptyState } from '@/components/empty-state'
-import { cn } from '@/lib/utils'
 import {
   Position,
+  Purchase,
   CalculatedPosition,
   calculatePosition,
   calculatePortfolioSummary,
@@ -21,11 +21,15 @@ import {
 import {
   getPositions,
   addPosition,
+  addPurchaseToPosition,
+  updatePurchase,
+  deletePurchase,
   updatePosition,
   deletePosition,
   getMarketData,
   updateCCLRate,
   updateLastPricesTimestamp,
+  savePositions,
 } from '@/lib/store'
 
 export function Dashboard() {
@@ -36,7 +40,6 @@ export function Dashboard() {
     lastPricesUpdated: null,
   })
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [editingPosition, setEditingPosition] = useState<CalculatedPosition | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isOnline, setIsOnline] = useState(true)
@@ -63,7 +66,7 @@ export function Dashboard() {
     }
   }, [])
 
-  // Load persisted data
+  // Load persisted data (migration happens automatically in getPositions)
   useEffect(() => {
     const storedPositions = getPositions()
     const storedMarketData = getMarketData()
@@ -74,8 +77,6 @@ export function Dashboard() {
 
   /**
    * Fetch current price + previousClose for every position in parallel.
-   * Silently updates only stockPriceUSD and previousCloseUSD per position.
-   * Marks priceFetchError=true on failure, keeps last known price.
    */
   const refreshAllPrices = useCallback(async (silent = false) => {
     const current = getPositions()
@@ -105,19 +106,16 @@ export function Dashboard() {
         anySuccess = true
         return {
           ...pos,
-          stockPriceUSD: result.value.price,
+          currentStockPriceUSD: result.value.price,
           previousCloseUSD: result.value.previousClose,
           priceFetchError: false,
           updatedAt: new Date().toISOString(),
         } as Position
       } else {
-        // Keep last known price, flag the error
         return { ...pos, priceFetchError: true } as Position
       }
     })
 
-    // Persist and update state
-    const { savePositions } = await import('@/lib/store')
     savePositions(updated)
     setPositions(updated)
 
@@ -129,17 +127,15 @@ export function Dashboard() {
     if (!silent) {
       setIsRefreshing(false)
       const failures = results.filter(r => r.status === 'rejected').length
-      if (failures === 0) {
-        // success handled by timestamp update; no toast needed (keep it unobtrusive)
+      if (failures > 0 && failures < current.length) {
+        toast.warning(`${failures} precio(s) no pudieron actualizarse.`)
       } else if (failures === current.length) {
         toast.error('No se pudo actualizar. Revisa tu conexion.')
-      } else {
-        toast.warning(`${failures} precio(s) no pudieron actualizarse.`)
       }
     }
   }, [])
 
-  // Auto-fetch on mount and on visibility change (when user returns to tab)
+  // Auto-fetch on mount and on visibility change
   useEffect(() => {
     if (isLoading) return
     if (!hasFetchedOnMount.current) {
@@ -171,9 +167,16 @@ export function Dashboard() {
     })
   }, [])
 
-  const handleAddPosition = useCallback((data: Omit<Position, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const handleAddPosition = useCallback((data: {
+    ticker: string
+    name: string
+    ratio: number
+    ratioOverridden: boolean
+    market: string
+    purchase: Omit<Purchase, 'id'>
+  }) => {
     const newPosition = addPosition(data)
-    setPositions(prev => [...prev, newPosition])
+    setPositions(getPositions())
     toast.success('Posicion agregada', {
       description: `${data.ticker} agregado a tu portfolio`,
     })
@@ -183,38 +186,57 @@ export function Dashboard() {
       .then(d => {
         if (d.success) {
           const upd = updatePosition(newPosition.id, {
-            stockPriceUSD: d.price,
+            currentStockPriceUSD: d.price,
             previousCloseUSD: d.previousClose ?? null,
             priceFetchError: false,
           })
-          if (upd) setPositions(prev => prev.map(p => p.id === upd.id ? upd : p))
+          if (upd) setPositions(getPositions())
         }
       })
       .catch(() => {/* silent */})
   }, [])
 
-  const handleEditPosition = useCallback((position: CalculatedPosition) => {
-    setEditingPosition(position)
-    setIsDialogOpen(true)
-  }, [])
-
-  const handleUpdatePosition = useCallback((data: Omit<Position, 'id' | 'createdAt' | 'updatedAt'>) => {
-    if (!editingPosition) return
-    const updated = updatePosition(editingPosition.id, data)
+  const handleAddPurchase = useCallback((positionId: string, purchase: Omit<Purchase, 'id'>) => {
+    const updated = addPurchaseToPosition(positionId, purchase)
     if (updated) {
-      setPositions(prev => prev.map(p => p.id === updated.id ? updated : p))
-      toast.success('Posicion actualizada', {
-        description: `${data.ticker} actualizado correctamente`,
+      setPositions(getPositions())
+      toast.success('Compra agregada', {
+        description: `Nueva compra registrada para ${updated.ticker}`,
       })
     }
-    setEditingPosition(null)
-  }, [editingPosition])
+  }, [])
+
+  const handleEditPurchase = useCallback((positionId: string, purchaseId: string, purchase: Omit<Purchase, 'id'>) => {
+    const updated = updatePurchase(positionId, purchaseId, purchase)
+    if (updated) {
+      setPositions(getPositions())
+      toast.success('Compra actualizada', {
+        description: `Compra de ${updated.ticker} actualizada`,
+      })
+    }
+  }, [])
+
+  const handleDeletePurchase = useCallback((positionId: string, purchaseId: string) => {
+    const position = positions.find(p => p.id === positionId)
+    const result = deletePurchase(positionId, purchaseId)
+    setPositions(getPositions())
+    
+    if (result.positionDeleted) {
+      toast.success('Posicion eliminada', {
+        description: position ? `${position.ticker} eliminado de tu portfolio` : 'Posicion eliminada',
+      })
+    } else if (result.position) {
+      toast.success('Compra eliminada', {
+        description: `Compra de ${result.position.ticker} eliminada`,
+      })
+    }
+  }, [positions])
 
   const handleDeletePosition = useCallback((id: string) => {
     const position = positions.find(p => p.id === id)
     const deleted = deletePosition(id)
     if (deleted) {
-      setPositions(prev => prev.filter(p => p.id !== id))
+      setPositions(getPositions())
       toast.success('Posicion eliminada', {
         description: position ? `${position.ticker} eliminado de tu portfolio` : 'Posicion eliminada',
       })
@@ -225,12 +247,11 @@ export function Dashboard() {
     const position = positions.find(p => p.id === positionId)
     if (!position) return
     const updated = updatePosition(positionId, {
-      ...position,
       ratio: newRatio,
       ratioOverridden: true,
     })
     if (updated) {
-      setPositions(prev => prev.map(p => p.id === updated.id ? updated : p))
+      setPositions(getPositions())
       toast.success('Ratio actualizado', {
         description: `Ratio de ${position.ticker} actualizado a ${newRatio}:1`,
       })
@@ -238,7 +259,6 @@ export function Dashboard() {
   }, [positions])
 
   const handleOpenDialog = useCallback(() => {
-    setEditingPosition(null)
     setIsDialogOpen(true)
   }, [])
 
@@ -306,9 +326,11 @@ export function Dashboard() {
                   <PositionCard
                     position={position}
                     cclRate={marketData.cclRate}
-                    onEdit={handleEditPosition}
                     onDelete={handleDeletePosition}
                     onRatioUpdate={handleRatioUpdate}
+                    onAddPurchase={handleAddPurchase}
+                    onEditPurchase={handleEditPurchase}
+                    onDeletePurchase={handleDeletePurchase}
                   />
                 </div>
               ))}
@@ -331,13 +353,8 @@ export function Dashboard() {
 
       <PositionDialog
         open={isDialogOpen}
-        onOpenChange={(open) => {
-          setIsDialogOpen(open)
-          if (!open) setEditingPosition(null)
-        }}
-        position={editingPosition}
-        mode={editingPosition ? 'edit' : 'create'}
-        onSave={editingPosition ? handleUpdatePosition : handleAddPosition}
+        onOpenChange={setIsDialogOpen}
+        onSave={handleAddPosition}
       />
     </div>
   )

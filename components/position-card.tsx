@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Calendar, TrendingUp, TrendingDown, MoreVertical, Pencil, Trash2, DollarSign, Clock, Info, ArrowUpDown, Banknote, BarChart3, AlertTriangle } from 'lucide-react'
+import { Calendar, TrendingUp, TrendingDown, MoreVertical, Pencil, Trash2, DollarSign, Clock, Info, ArrowUpDown, Banknote, BarChart3, AlertTriangle, ChevronDown, Plus } from 'lucide-react'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -27,21 +27,42 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 import { RatioCorrectionModal } from '@/components/ratio-correction-modal'
-import { CalculatedPosition, formatARS, formatUSD, formatPercent } from '@/lib/types'
+import { PurchaseDialog } from '@/components/purchase-dialog'
+import { CalculatedPosition, Purchase, formatARS, formatUSD, formatPercent } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
 interface PositionCardProps {
   position: CalculatedPosition
   cclRate: number
-  onEdit: (position: CalculatedPosition) => void
   onDelete: (id: string) => void
   onRatioUpdate: (positionId: string, newRatio: number) => void
+  onAddPurchase: (positionId: string, purchase: Omit<Purchase, 'id'>) => void
+  onEditPurchase: (positionId: string, purchaseId: string, purchase: Omit<Purchase, 'id'>) => void
+  onDeletePurchase: (positionId: string, purchaseId: string) => void
 }
 
-export function PositionCard({ position, cclRate, onEdit, onDelete, onRatioUpdate }: PositionCardProps) {
+export function PositionCard({ 
+  position, 
+  cclRate, 
+  onDelete, 
+  onRatioUpdate, 
+  onAddPurchase,
+  onEditPurchase,
+  onDeletePurchase,
+}: PositionCardProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [showRatioModal, setShowRatioModal] = useState(false)
+  const [showPurchaseDialog, setShowPurchaseDialog] = useState(false)
+  const [editingPurchase, setEditingPurchase] = useState<Purchase | null>(null)
+  const [deletingPurchaseId, setDeletingPurchaseId] = useState<string | null>(null)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  
   const isPositiveARS = position.returnARS >= 0
 
   const formatDate = (dateString: string) => {
@@ -51,6 +72,40 @@ export function PositionCard({ position, cclRate, onEdit, onDelete, onRatioUpdat
       year: 'numeric',
     })
   }
+
+  const handleAddPurchase = () => {
+    setEditingPurchase(null)
+    setShowPurchaseDialog(true)
+  }
+
+  const handleEditPurchase = (purchase: Purchase) => {
+    setEditingPurchase(purchase)
+    setShowPurchaseDialog(true)
+  }
+
+  const handleSavePurchase = (data: Omit<Purchase, 'id'>) => {
+    if (editingPurchase) {
+      onEditPurchase(position.id, editingPurchase.id, data)
+    } else {
+      onAddPurchase(position.id, data)
+    }
+    setEditingPurchase(null)
+  }
+
+  const handleDeletePurchase = (purchaseId: string) => {
+    setDeletingPurchaseId(purchaseId)
+  }
+
+  const confirmDeletePurchase = () => {
+    if (deletingPurchaseId) {
+      onDeletePurchase(position.id, deletingPurchaseId)
+      setDeletingPurchaseId(null)
+    }
+  }
+
+  const sortedPurchases = [...position.purchases].sort(
+    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+  )
 
   return (
     <TooltipProvider>
@@ -112,16 +167,12 @@ export function PositionCard({ position, cclRate, onEdit, onDelete, onRatioUpdat
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => onEdit(position)}>
-                  <Pencil className="mr-2 h-4 w-4" />
-                  Editar
-                </DropdownMenuItem>
                 <DropdownMenuItem 
                   onClick={() => setShowDeleteDialog(true)}
                   className="text-loss focus:text-loss"
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
-                  Eliminar
+                  Eliminar Posicion
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -243,7 +294,7 @@ export function PositionCard({ position, cclRate, onEdit, onDelete, onRatioUpdat
             </div>
           </div>
 
-          {/* Daily change row — "Hoy" */}
+          {/* Daily change row */}
           {(() => {
             const hasDailyData = position.dailyChangePercent !== null && position.dailyChangeARS !== null
             const isPositive = (position.dailyChangePercent ?? 0) > 0
@@ -285,9 +336,9 @@ export function PositionCard({ position, cclRate, onEdit, onDelete, onRatioUpdat
           {/* Price comparison */}
           <div className="grid grid-cols-3 gap-2 text-center">
             <div className="p-2 rounded-lg bg-secondary/50">
-              <p className="text-xs text-muted-foreground">Precio Compra</p>
+              <p className="text-xs text-muted-foreground">Precio Prom.</p>
               <p className="text-sm font-semibold text-foreground mt-1">
-                {formatARS(position.purchasePrice)}
+                {formatARS(position.avgPurchasePriceARS)}
               </p>
             </div>
             <div className="p-2 rounded-lg bg-secondary/50">
@@ -312,7 +363,7 @@ export function PositionCard({ position, cclRate, onEdit, onDelete, onRatioUpdat
 
           {/* Ratio correction hint */}
           <div className="text-xs text-muted-foreground flex items-center justify-between">
-            <span>El precio teórico no coincide con el de tu broker?</span>
+            <span>El precio teorico no coincide con el de tu broker?</span>
             <button
               onClick={() => setShowRatioModal(true)}
               className="text-primary hover:underline font-medium"
@@ -326,12 +377,12 @@ export function PositionCard({ position, cclRate, onEdit, onDelete, onRatioUpdat
             <div className="flex items-center gap-2">
               <DollarSign className="w-4 h-4 text-muted-foreground" />
               <span className="text-muted-foreground">Stock USD:</span>
-              <span className="font-medium text-foreground ml-auto">{formatUSD(position.stockPriceUSD)}</span>
+              <span className="font-medium text-foreground ml-auto">{formatUSD(position.currentStockPriceUSD)}</span>
             </div>
             <div className="flex items-center gap-2">
               <BarChart3 className="w-4 h-4 text-muted-foreground" />
-              <span className="text-muted-foreground">CCL compra:</span>
-              <span className="font-medium text-foreground ml-auto">{formatARS(position.cclAtPurchase)}</span>
+              <span className="text-muted-foreground">CCL prom.:</span>
+              <span className="font-medium text-foreground ml-auto">{formatARS(position.avgCclAtPurchase)}</span>
             </div>
             <div className="flex items-center gap-2">
               <BarChart3 className="w-4 h-4 text-muted-foreground" />
@@ -344,7 +395,7 @@ export function PositionCard({ position, cclRate, onEdit, onDelete, onRatioUpdat
           <div className="border-t border-border pt-3 space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Cantidad:</span>
-              <span className="font-medium text-foreground">{position.quantity} CEDEARs</span>
+              <span className="font-medium text-foreground">{position.totalQuantity} CEDEARs</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Total Invertido:</span>
@@ -365,26 +416,109 @@ export function PositionCard({ position, cclRate, onEdit, onDelete, onRatioUpdat
             </div>
           </div>
 
-          {/* Footer */}
+          {/* Footer with dates */}
           <div className="flex items-center justify-between text-xs text-muted-foreground border-t border-border pt-3">
             <div className="flex items-center gap-1">
               <Calendar className="w-3 h-3" />
-              <span>{formatDate(position.purchaseDate)}</span>
+              <span>{formatDate(position.firstPurchaseDate)}</span>
             </div>
             <div className="flex items-center gap-1">
               <Clock className="w-3 h-3" />
               <span>{position.daysHeld} dias</span>
             </div>
           </div>
+
+          {/* Purchase History Collapsible */}
+          <Collapsible open={historyOpen} onOpenChange={setHistoryOpen}>
+            <div className="border-t border-border pt-3">
+              <div className="flex items-center justify-between">
+                <CollapsibleTrigger asChild>
+                  <button className="flex items-center gap-2 text-sm font-medium text-foreground hover:text-primary transition-colors">
+                    <ChevronDown className={cn(
+                      "w-4 h-4 transition-transform duration-200",
+                      historyOpen && "rotate-180"
+                    )} />
+                    Historial de compras ({position.purchases.length})
+                  </button>
+                </CollapsibleTrigger>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAddPurchase}
+                  className="h-7 px-2 text-xs border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+                >
+                  <Plus className="w-3 h-3 mr-1" />
+                  Agregar compra
+                </Button>
+              </div>
+              
+              <CollapsibleContent className="mt-3 space-y-2">
+                {sortedPurchases.map((purchase, index) => (
+                  <div 
+                    key={purchase.id}
+                    className={cn(
+                      "p-3 rounded-lg bg-secondary/30 text-sm",
+                      index < sortedPurchases.length - 1 && "border-b border-border"
+                    )}
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <span className="font-medium text-foreground">
+                        {formatDate(purchase.date)}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => handleEditPurchase(purchase)}
+                        >
+                          <Pencil className="w-3 h-3" />
+                          <span className="sr-only">Editar</span>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-loss hover:text-loss"
+                          onClick={() => handleDeletePurchase(purchase.id)}
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          <span className="sr-only">Eliminar</span>
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <span className="text-muted-foreground">Cantidad:</span>
+                        <span className="ml-1 font-medium text-foreground">{purchase.quantity}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Precio:</span>
+                        <span className="ml-1 font-medium text-foreground">{formatARS(purchase.priceARS)}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">CCL:</span>
+                        <span className="ml-1 font-medium text-foreground">{formatARS(purchase.cclAtPurchase)}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Stock USD:</span>
+                        <span className="ml-1 font-medium text-foreground">{formatUSD(purchase.stockPriceUSD)}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </CollapsibleContent>
+            </div>
+          </Collapsible>
         </CardContent>
       </Card>
 
+      {/* Delete Position Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Eliminar posicion</AlertDialogTitle>
             <AlertDialogDescription>
-              {`Estas seguro de que queres eliminar tu posicion de ${position.ticker}? Esta accion no se puede deshacer.`}
+              {`Estas seguro de que queres eliminar toda tu posicion de ${position.ticker}? Esta accion no se puede deshacer.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -399,11 +533,44 @@ export function PositionCard({ position, cclRate, onEdit, onDelete, onRatioUpdat
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Delete Purchase Dialog */}
+      <AlertDialog open={!!deletingPurchaseId} onOpenChange={(open) => !open && setDeletingPurchaseId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminar compra</AlertDialogTitle>
+            <AlertDialogDescription>
+              {position.purchases.length === 1 
+                ? 'Esta es la unica compra de esta posicion. Al eliminarla se eliminara toda la posicion.'
+                : 'Estas seguro de que queres eliminar esta compra? Los promedios se recalcularan automaticamente.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeletePurchase}
+              className="bg-loss hover:bg-loss/90 text-loss-foreground"
+            >
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <RatioCorrectionModal
         open={showRatioModal}
         onOpenChange={setShowRatioModal}
         currentRatio={position.ratio}
         onSave={(newRatio) => onRatioUpdate(position.id, newRatio)}
+      />
+
+      <PurchaseDialog
+        open={showPurchaseDialog}
+        onOpenChange={setShowPurchaseDialog}
+        ticker={position.ticker}
+        ratio={position.ratio}
+        purchase={editingPurchase}
+        onSave={handleSavePurchase}
+        mode={editingPurchase ? 'edit' : 'create'}
       />
     </TooltipProvider>
   )
