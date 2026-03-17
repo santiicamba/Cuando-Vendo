@@ -32,6 +32,11 @@ import {
   updateLastPricesTimestamp,
   savePositions,
 } from '@/lib/store'
+import {
+  checkAndFireAlerts,
+  requestNotificationPermission,
+  getNotificationPermission,
+} from '@/lib/alerts'
 
 export function Dashboard() {
   const [positions, setPositions] = useState<Position[]>([])
@@ -123,6 +128,14 @@ export function Dashboard() {
     if (anySuccess) {
       const newMarketData = updateLastPricesTimestamp()
       setMarketData(newMarketData)
+      // Check alert thresholds after every successful price refresh
+      const cclRate = getMarketData().cclRate
+      const { calculatePosition } = await import('@/lib/types')
+      const snapshots = updated.map(pos => {
+        const calc = calculatePosition(pos, cclRate)
+        return { id: pos.id, ticker: pos.ticker, returnUSD: calc.returnUSD }
+      })
+      checkAndFireAlerts(snapshots)
     }
 
     if (!silent) {
@@ -190,6 +203,10 @@ export function Dashboard() {
     toast.success('Posicion agregada', {
       description: `${data.ticker} agregado a tu portfolio`,
     })
+    // Request notification permission on first position added (if not already decided)
+    if (getNotificationPermission() === 'default') {
+      requestNotificationPermission()
+    }
     // Fetch price for just the new position silently
     fetch(`/api/stock/${encodeURIComponent(data.ticker)}`)
       .then(r => r.json())
