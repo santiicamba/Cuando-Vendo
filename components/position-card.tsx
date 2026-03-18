@@ -743,10 +743,10 @@ export function PositionCard({
 
       {/* Target edit dialog */}
       <Dialog open={showTargetDialog} onOpenChange={setShowTargetDialog}>
-        <DialogContent className="sm:max-w-[380px]">
+        <DialogContent className="sm:max-w-[380px]" aria-describedby="target-dialog-desc">
           <DialogHeader>
             <DialogTitle>Mi objetivo — {position.ticker}</DialogTitle>
-            <DialogDescription>
+            <DialogDescription id="target-dialog-desc">
               Define un objetivo de ganancia o limite de perdida en USD para esta posicion.
             </DialogDescription>
           </DialogHeader>

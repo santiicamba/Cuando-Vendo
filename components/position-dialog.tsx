@@ -395,7 +395,7 @@ export function PositionDialog({ open, onOpenChange, onSave }: PositionDialogPro
           <Button
             onClick={handleSave}
             disabled={!isValid}
-            className="w-full h-12 text-sm font-semibold"
+            className="w-full h-12 text-sm font-semibold bg-primary hover:bg-primary/90 text-white"
           >
             Agregar Posicion
           </Button>

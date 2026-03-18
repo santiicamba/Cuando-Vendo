@@ -145,6 +145,8 @@ export function Dashboard() {
         toast.warning(`${failures} precio(s) no pudieron actualizarse.`)
       } else if (failures === current.length) {
         toast.error('No se pudo actualizar. Revisa tu conexion.')
+      } else if (anySuccess) {
+        toast.success('Todos los precios fueron actualizados correctamente.')
       }
     }
   }, [])

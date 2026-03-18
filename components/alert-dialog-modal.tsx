@@ -85,13 +85,13 @@ export function AlertDialogModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[420px] bg-card border-border">
+      <DialogContent className="sm:max-w-[420px] bg-card border-border" aria-describedby="alert-dialog-desc">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-foreground">
             <Bell className="w-4 h-4 text-primary" />
             Alertas — {ticker}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription id="alert-dialog-desc">
             Configura notificaciones para cuando el retorno de esta posicion alcance los umbrales definidos.
           </DialogDescription>
         </DialogHeader>
