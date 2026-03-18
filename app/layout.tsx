@@ -11,6 +11,7 @@ export const metadata: Metadata = {
   title: '¿Cuándo Vendo? - CEDEAR Investment Tracker',
   description: 'Seguí el rendimiento de tus CEDEARs en tiempo real. Calculá el retorno real considerando el precio del activo, tipo de cambio CCL y ratio de conversión.',
   generator: 'v0.app',
+  manifest: '/manifest.json',
   icons: {
     icon: [
       {
@@ -26,7 +27,15 @@ export const metadata: Metadata = {
         type: 'image/svg+xml',
       },
     ],
-    apple: '/apple-icon.png',
+    apple: '/icons/icon-192.png',
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: '¿Cuándo Vendo?',
+  },
+  formatDetection: {
+    telephone: false,
   },
 }
 
@@ -40,7 +49,18 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html lang="es">
+      <head>
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="Cuando Vendo?" />
+        <meta name="apple-mobile-web-app-icon-status-bar-style" content="black-translucent" />
+        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+        <meta name="msapplication-TileColor" content="#059669" />
+        <meta name="msapplication-TileImage" content="/icons/icon-192.png" />
+        <meta name="theme-color" content="#059669" />
+      </head>
       <body className="font-sans antialiased">
         {children}
         <Toaster richColors position="top-right" />
