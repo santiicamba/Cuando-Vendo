@@ -5,9 +5,16 @@ export async function GET(
   { params }: { params: Promise<{ ticker: string }> }
 ) {
   const { ticker } = await params
+  const { searchParams } = new URL(request.url)
+  const period1 = searchParams.get('period1')
+  const period2 = searchParams.get('period2')
   
   try {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}`
+    // Build URL with optional historical range
+    let url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}`
+    if (period1 && period2) {
+      url += `?period1=${period1}&period2=${period2}&interval=1d`
+    }
     
     const response = await fetch(url, {
       headers: {
@@ -41,6 +48,16 @@ export async function GET(
       throw new Error('Price not available')
     }
 
+    // If historical range requested, get the first available close price
+    let historicalStart: number | undefined
+    if (period1 && period2) {
+      const closes = result.indicators?.quote?.[0]?.close as number[] | undefined
+      if (closes && closes.length > 0) {
+        // Find first non-null close
+        historicalStart = closes.find((c: number | null) => c !== null && c !== undefined)
+      }
+    }
+
     return NextResponse.json({
       success: true,
       ticker,
@@ -51,6 +68,7 @@ export async function GET(
       marketState,
       change: previousClose ? price - previousClose : null,
       changePercent: previousClose ? ((price - previousClose) / previousClose) * 100 : null,
+      historicalStart,
     })
   } catch (error) {
     console.error(`Error fetching stock price for ${ticker}:`, error)

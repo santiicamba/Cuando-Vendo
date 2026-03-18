@@ -378,12 +378,12 @@ export function Dashboard() {
         )}
       </main>
 
-      {/* Floating Add Button */}
+      {/* Floating Add Button — offset for bottom tab bar */}
       {positions.length > 0 && (
         <Button
           onClick={handleOpenDialog}
           size="lg"
-          className="fixed bottom-6 right-6 h-14 px-6 rounded-full shadow-lg hover:shadow-xl transition-all gap-2 z-50"
+          className="fixed bottom-20 right-4 h-14 px-6 rounded-full shadow-lg hover:shadow-xl transition-all gap-2 z-40"
         >
           <Plus className="w-5 h-5" />
           <span className="hidden sm:inline">Agregar Posicion</span>
@@ -396,8 +396,8 @@ export function Dashboard() {
         onSave={handleAddPosition}
       />
 
-      {/* Permanent disclaimer */}
-      <footer className="container mx-auto px-4 py-8 mt-4">
+      {/* Permanent disclaimer — extra bottom padding for tab bar */}
+      <footer className="container mx-auto px-4 py-8 mt-4 pb-20">
         <p className="text-xs text-muted-foreground/70 text-center leading-relaxed max-w-2xl mx-auto">
           Cuando Vendo? es una herramienta de seguimiento y calculo de inversiones personales. La informacion que muestra es de caracter informativo y no constituye asesoramiento financiero, legal ni impositivo. Las metas y limites que configuras son decisiones personales tuyas. Consulta con un asesor certificado ante la CNV antes de tomar cualquier decision de inversion.
         </p>
