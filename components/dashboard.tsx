@@ -337,7 +337,7 @@ export function Dashboard() {
           lastPricesUpdated={marketData.lastPricesUpdated}
           isRefreshing={isRefreshing}
           onCCLChange={handleCCLChange}
-          onRefreshPrices={() => refreshAllPrices(false)}
+          onRefreshAll={() => refreshAllPrices(false)}
         />
 
         {positions.length > 0 && (

@@ -1,18 +1,10 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { CalendarIcon, Info, RefreshCw, Loader2, AlertCircle, Check } from 'lucide-react'
+import { CalendarIcon, Info, RefreshCw, Loader2, AlertCircle, Check, X } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Calendar } from '@/components/ui/calendar'
@@ -62,7 +54,6 @@ export function PositionDialog({ open, onOpenChange, onSave }: PositionDialogPro
     try {
       const response = await fetch(`/api/stock/${encodeURIComponent(ticker)}`)
       const data = await response.json()
-      
       if (data.success && data.price) {
         setStockPriceUSD(data.price.toFixed(2))
         setPriceFetchStatus('success')
@@ -95,9 +86,7 @@ export function PositionDialog({ open, onOpenChange, onSave }: PositionDialogPro
   const handleCedearSelect = (cedear: CEDEAR | null) => {
     setSelectedCedear(cedear)
     if (cedear) {
-      if (!useCustomRatio) {
-        setCustomRatio(cedear.ratio.toString())
-      }
+      if (!useCustomRatio) setCustomRatio(cedear.ratio.toString())
       fetchStockPrice(cedear.ticker)
     } else {
       setStockPriceUSD('')
@@ -105,22 +94,13 @@ export function PositionDialog({ open, onOpenChange, onSave }: PositionDialogPro
     }
   }
 
-  const handleRefreshPrice = () => {
-    if (selectedCedear) {
-      fetchStockPrice(selectedCedear.ticker)
-    }
-  }
-
   const handleSave = () => {
-    if (!selectedCedear || !purchaseDate || !priceARS || !cclAtPurchase || !quantity || !stockPriceUSD) {
-      return
-    }
+    if (!selectedCedear || !purchaseDate || !priceARS || !cclAtPurchase || !quantity || !stockPriceUSD) return
 
     const effectiveRatio = useCustomRatio && customRatio
       ? parseFloat(customRatio)
       : selectedCedear.ratio
 
-    // Check if theoretical price differs from purchase price by more than 70%
     const theoreticalPrice = (parseFloat(stockPriceUSD) / effectiveRatio) * parseFloat(cclAtPurchase)
     const priceDifference = Math.abs((theoreticalPrice - parseFloat(priceARS)) / parseFloat(priceARS))
 
@@ -128,9 +108,7 @@ export function PositionDialog({ open, onOpenChange, onSave }: PositionDialogPro
       const shouldContinue = window.confirm(
         'El precio teorico difiere mucho del precio de compra. Es posible que el ratio este incorrecto. Verificá en byma.com.ar/cedears antes de continuar. Deseas continuar igual?'
       )
-      if (!shouldContinue) {
-        return
-      }
+      if (!shouldContinue) return
     }
 
     onSave({
@@ -154,26 +132,66 @@ export function PositionDialog({ open, onOpenChange, onSave }: PositionDialogPro
 
   const isValid = selectedCedear && purchaseDate && priceARS && cclAtPurchase && quantity && stockPriceUSD
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>Agregar Posicion</DialogTitle>
-          <DialogDescription>
-            Agrega una nueva posicion de CEDEAR a tu portfolio.
-          </DialogDescription>
-        </DialogHeader>
+  if (!open) return null
 
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label>CEDEAR</Label>
+  return (
+    /* Full-screen overlay on mobile, centered modal on desktop */
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Agregar Posicion"
+    >
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        onClick={() => onOpenChange(false)}
+      />
+
+      {/* Sheet panel */}
+      <div className={cn(
+        "relative z-10 flex flex-col bg-background",
+        "w-full sm:max-w-[500px] sm:rounded-xl sm:shadow-2xl",
+        // Mobile: full height sheet from bottom
+        "h-[92dvh] sm:h-auto sm:max-h-[90dvh]",
+        "rounded-t-2xl sm:rounded-xl",
+      )}>
+
+        {/* ── Pinned header with ticker selector ── */}
+        <div className="flex-shrink-0 px-5 pt-5 pb-4 border-b border-border space-y-3">
+          {/* Drag handle on mobile */}
+          <div className="flex justify-center sm:hidden">
+            <div className="w-10 h-1 rounded-full bg-border" />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-base font-semibold text-foreground">Agregar Posicion</h2>
+              <p className="text-xs text-muted-foreground">Agrega una nueva posicion de CEDEAR</p>
+            </div>
+            <button
+              onClick={() => onOpenChange(false)}
+              className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-muted transition-colors text-muted-foreground"
+              aria-label="Cerrar"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Ticker selector — always visible at top */}
+          <div className="space-y-1.5">
+            <Label className="text-sm">CEDEAR</Label>
             <CEDEARCombobox
               value={selectedCedear?.ticker || ''}
               onSelect={handleCedearSelect}
             />
           </div>
+        </div>
 
-          <div className="space-y-2">
+        {/* ── Scrollable body ── */}
+        <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-4 space-y-4">
+
+          <div className="space-y-1.5">
             <Label>Fecha de Compra</Label>
             <Popover>
               <PopoverTrigger asChild>
@@ -185,11 +203,10 @@ export function PositionDialog({ open, onOpenChange, onSave }: PositionDialogPro
                   )}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {purchaseDate ? (
-                    format(purchaseDate, "PPP", { locale: es })
-                  ) : (
-                    <span>Seleccionar fecha...</span>
-                  )}
+                  {purchaseDate
+                    ? format(purchaseDate, "PPP", { locale: es })
+                    : <span>Seleccionar fecha...</span>
+                  }
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
@@ -205,7 +222,7 @@ export function PositionDialog({ open, onOpenChange, onSave }: PositionDialogPro
             </Popover>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <Label htmlFor="quantity">Cantidad de CEDEARs</Label>
             <Input
               id="quantity"
@@ -219,8 +236,8 @@ export function PositionDialog({ open, onOpenChange, onSave }: PositionDialogPro
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
               <Label htmlFor="priceARS">Precio por Unidad (ARS)</Label>
               <Input
                 id="priceARS"
@@ -233,7 +250,7 @@ export function PositionDialog({ open, onOpenChange, onSave }: PositionDialogPro
                 className="bg-card"
               />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label htmlFor="cclAtPurchase">CCL al Comprar</Label>
               <Input
                 id="cclAtPurchase"
@@ -248,29 +265,27 @@ export function PositionDialog({ open, onOpenChange, onSave }: PositionDialogPro
             </div>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <Label htmlFor="stockPriceUSD">Precio del Activo (USD)</Label>
               {selectedCedear && (
-                <Button
+                <button
                   type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleRefreshPrice}
+                  onClick={() => fetchStockPrice(selectedCedear.ticker)}
                   disabled={priceFetchStatus === 'loading'}
-                  className="h-6 px-2 text-xs"
+                  className="flex items-center gap-1 text-xs text-primary hover:underline disabled:opacity-50"
                 >
                   {priceFetchStatus === 'loading' ? (
-                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                    <Loader2 className="w-3 h-3 animate-spin" />
                   ) : priceFetchStatus === 'success' ? (
-                    <Check className="w-3 h-3 mr-1 text-green-600" />
+                    <Check className="w-3 h-3 text-green-600" />
                   ) : priceFetchStatus === 'error' ? (
-                    <AlertCircle className="w-3 h-3 mr-1 text-red-500" />
+                    <AlertCircle className="w-3 h-3 text-red-500" />
                   ) : (
-                    <RefreshCw className="w-3 h-3 mr-1" />
+                    <RefreshCw className="w-3 h-3" />
                   )}
                   {priceFetchStatus === 'loading' ? 'Cargando...' : 'Actualizar'}
-                </Button>
+                </button>
               )}
             </div>
             <div className="relative">
@@ -282,10 +297,7 @@ export function PositionDialog({ open, onOpenChange, onSave }: PositionDialogPro
                 placeholder={priceFetchStatus === 'loading' ? 'Obteniendo precio...' : 'ej: 175.50'}
                 value={stockPriceUSD}
                 onChange={(e) => setStockPriceUSD(e.target.value)}
-                className={cn(
-                  "bg-card pr-10",
-                  priceFetchStatus === 'loading' && "opacity-50"
-                )}
+                className={cn('bg-card pr-10', priceFetchStatus === 'loading' && 'opacity-50')}
                 disabled={priceFetchStatus === 'loading'}
               />
               {priceFetchStatus === 'loading' && (
@@ -293,17 +305,18 @@ export function PositionDialog({ open, onOpenChange, onSave }: PositionDialogPro
               )}
             </div>
             <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <Info className="w-3 h-3" />
-              {priceFetchStatus === 'error' 
+              <Info className="w-3 h-3 flex-shrink-0" />
+              {priceFetchStatus === 'error'
                 ? 'No se pudo obtener el precio. Ingresalo manualmente.'
                 : 'Precio actual de la accion en el mercado de origen'}
             </p>
           </div>
 
+          {/* Ratio section */}
           <div className="border border-border rounded-lg p-4 space-y-3">
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label htmlFor="customRatio" className="text-sm">Ratio Personalizado</Label>
+                <Label htmlFor="useCustomRatio" className="text-sm">Ratio Personalizado</Label>
                 <p className="text-xs text-muted-foreground">
                   Ratio actual: {selectedCedear?.ratio || '—'}
                 </p>
@@ -314,7 +327,6 @@ export function PositionDialog({ open, onOpenChange, onSave }: PositionDialogPro
                 onCheckedChange={setUseCustomRatio}
               />
             </div>
-            
             {useCustomRatio && (
               <Input
                 id="customRatio"
@@ -327,24 +339,23 @@ export function PositionDialog({ open, onOpenChange, onSave }: PositionDialogPro
                 className="bg-card"
               />
             )}
-            
             <p className="text-xs text-muted-foreground">
-              Verifica que el ratio coincida con el de tu broker. Podés consultarlo en{' '}
+              Verificá que el ratio coincida con el de tu broker. Podés consultarlo en{' '}
               <a href="https://byma.com.ar/cedears" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
                 byma.com.ar/cedears
               </a>
             </p>
           </div>
 
-          {/* Optional target fields */}
+          {/* Optional targets */}
           <div className="border border-border rounded-lg p-4 space-y-3">
             <div>
               <p className="text-sm font-medium text-foreground">Mi objetivo</p>
               <p className="text-xs text-muted-foreground mt-0.5">Opcional — podes completar esto despues</p>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="targetGainUSD" className="text-xs">Objetivo de ganancia en USD (%)</Label>
+                <Label htmlFor="targetGainUSD" className="text-xs">Objetivo de ganancia (%)</Label>
                 <Input
                   id="targetGainUSD"
                   type="number"
@@ -357,7 +368,7 @@ export function PositionDialog({ open, onOpenChange, onSave }: PositionDialogPro
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="stopLossUSD" className="text-xs">Limite de perdida en USD (%)</Label>
+                <Label htmlFor="stopLossUSD" className="text-xs">Limite de perdida (%)</Label>
                 <Input
                   id="stopLossUSD"
                   type="number"
@@ -371,20 +382,25 @@ export function PositionDialog({ open, onOpenChange, onSave }: PositionDialogPro
               </div>
             </div>
             <p className="text-xs text-muted-foreground">
-              Ingresa el porcentaje de ganancia o perdida que defines como tu objetivo. Se mostrara una barra de progreso en la tarjeta.
+              Se comparará con el retorno en USD de la posicion.
             </p>
           </div>
+
+          {/* Bottom spacer so last field clears the fixed footer */}
+          <div className="h-2" />
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancelar
-          </Button>
-          <Button onClick={handleSave} disabled={!isValid}>
+        {/* ── Pinned save button at bottom ── */}
+        <div className="flex-shrink-0 px-5 py-4 border-t border-border bg-background">
+          <Button
+            onClick={handleSave}
+            disabled={!isValid}
+            className="w-full h-12 text-sm font-semibold"
+          >
             Agregar Posicion
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </div>
+      </div>
+    </div>
   )
 }

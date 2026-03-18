@@ -1,5 +1,5 @@
 /**
- * Alert system for ¿Cuándo Vendo?
+ * Alert system for Cuando Vendo?
  *
  * Alerts are stored separately from positions so they survive position migrations.
  * Each alert is keyed by position ID.
@@ -47,12 +47,15 @@ export function setAlert(config: AlertConfig): void {
   const alerts = getAlerts()
   alerts[config.positionId] = config
   saveAlerts(alerts)
+  // When an alert is reconfigured, clear its triggered state so it can fire fresh
+  clearTriggeredState(config.positionId)
 }
 
 export function removeAlert(positionId: string): void {
   const alerts = getAlerts()
   delete alerts[positionId]
   saveAlerts(alerts)
+  clearTriggeredState(positionId)
 }
 
 function getTriggeredMap(): Record<string, TriggeredState> {
@@ -70,29 +73,35 @@ function saveTriggeredMap(map: Record<string, TriggeredState>): void {
   localStorage.setItem(TRIGGERED_KEY, JSON.stringify(map))
 }
 
+function clearTriggeredState(positionId: string): void {
+  const map = getTriggeredMap()
+  delete map[positionId]
+  saveTriggeredMap(map)
+}
+
 // ---------------------------------------------------------------------------
 // Notification permission
 // ---------------------------------------------------------------------------
 
-export type NotificationPermission = 'default' | 'granted' | 'denied' | 'unsupported'
+export type NotificationPermissionState = 'default' | 'granted' | 'denied' | 'unsupported'
 
-export function getNotificationPermission(): NotificationPermission {
+export function getNotificationPermission(): NotificationPermissionState {
   if (typeof window === 'undefined') return 'unsupported'
   if (!('Notification' in window)) return 'unsupported'
-  return Notification.permission as NotificationPermission
+  return Notification.permission as NotificationPermissionState
 }
 
 /**
  * Request browser notification permission.
  * Returns the resulting permission state.
  */
-export async function requestNotificationPermission(): Promise<NotificationPermission> {
+export async function requestNotificationPermission(): Promise<NotificationPermissionState> {
   if (typeof window === 'undefined') return 'unsupported'
   if (!('Notification' in window)) return 'unsupported'
   if (Notification.permission === 'granted') return 'granted'
   if (Notification.permission === 'denied') return 'denied'
   const result = await Notification.requestPermission()
-  return result as NotificationPermission
+  return result as NotificationPermissionState
 }
 
 function fireNotification(title: string, body: string): void {
@@ -102,8 +111,9 @@ function fireNotification(title: string, body: string): void {
   try {
     new Notification(title, {
       body,
-      icon: '/icon.svg',
-      tag: title, // deduplicates same-tag notifications on most browsers
+      icon: '/icons/icon-192.png',
+      // Use unique tag per title so each alert shows independently
+      tag: title,
     })
   } catch {
     // Notification constructor can throw in some sandboxed environments
@@ -123,57 +133,78 @@ interface PositionSnapshot {
 /**
  * Compare each position's current returnUSD against its alert thresholds.
  * Fires at most once per crossing event and resets when price moves back.
+ *
+ * Key fix: track `positionChanged` per-position so triggered state is
+ * always persisted correctly even when only some positions change.
  */
 export function checkAndFireAlerts(positions: PositionSnapshot[]): void {
-  if (getNotificationPermission() !== 'granted') return
+  // Bail early if permission not granted
+  if (typeof window === 'undefined') return
+  if (!('Notification' in window)) return
+  if (Notification.permission !== 'granted') return
 
   const alerts = getAlerts()
   const triggered = getTriggeredMap()
-  let changed = false
 
   for (const pos of positions) {
     const alert = alerts[pos.id]
     if (!alert || !alert.enabled) continue
 
-    const state: TriggeredState = triggered[pos.id] ?? { targetFired: false, stopFired: false }
+    // Clone current state (or start fresh)
+    const prev: TriggeredState = triggered[pos.id]
+      ? { ...triggered[pos.id] }
+      : { targetFired: false, stopFired: false }
+
+    let positionChanged = false
 
     // --- Target gain check ---
     if (alert.targetGainUSD !== null) {
       const threshold = alert.targetGainUSD
-      if (pos.returnUSD >= threshold && !state.targetFired) {
-        fireNotification(
-          `Alerta de cartera - ${pos.ticker}`,
-          `Alcanzaste el objetivo que definiste para tu posicion en ${pos.ticker}.`
-        )
-        state.targetFired = true
-        changed = true
-      } else if (pos.returnUSD < threshold && state.targetFired) {
-        // Price retreated — reset so it can fire again if it crosses up again
-        state.targetFired = false
-        changed = true
+      if (pos.returnUSD >= threshold) {
+        if (!prev.targetFired) {
+          fireNotification(
+            `Alerta de cartera - ${pos.ticker}`,
+            `Alcanzaste el objetivo que definiste para tu posicion en ${pos.ticker}.`
+          )
+          prev.targetFired = true
+          positionChanged = true
+        }
+      } else {
+        // Price retreated below threshold — reset so it can fire again
+        if (prev.targetFired) {
+          prev.targetFired = false
+          positionChanged = true
+        }
       }
     }
 
     // --- Stop loss check ---
     if (alert.stopLossUSD !== null) {
       const threshold = -Math.abs(alert.stopLossUSD)
-      if (pos.returnUSD <= threshold && !state.stopFired) {
-        fireNotification(
-          `Alerta de cartera - ${pos.ticker}`,
-          `Tu posicion en ${pos.ticker} esta por debajo del limite que definiste.`
-        )
-        state.stopFired = true
-        changed = true
-      } else if (pos.returnUSD > threshold && state.stopFired) {
-        state.stopFired = false
-        changed = true
+      if (pos.returnUSD <= threshold) {
+        if (!prev.stopFired) {
+          fireNotification(
+            `Alerta de cartera - ${pos.ticker}`,
+            `Tu posicion en ${pos.ticker} esta por debajo del limite que definiste.`
+          )
+          prev.stopFired = true
+          positionChanged = true
+        }
+      } else {
+        // Price recovered — reset
+        if (prev.stopFired) {
+          prev.stopFired = false
+          positionChanged = true
+        }
       }
     }
 
-    if (changed) {
-      triggered[pos.id] = state
+    // Persist updated state for this position immediately
+    if (positionChanged) {
+      triggered[pos.id] = prev
     }
   }
 
-  if (changed) saveTriggeredMap(triggered)
+  // Save the full map once after all positions are checked
+  saveTriggeredMap(triggered)
 }
