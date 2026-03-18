@@ -5,6 +5,7 @@ import { Bell, BellOff, Info } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -90,6 +91,9 @@ export function AlertDialogModal({
             <Bell className="w-4 h-4 text-primary" />
             Alertas — {ticker}
           </DialogTitle>
+          <DialogDescription>
+            Configura notificaciones para cuando el retorno de esta posicion alcance los umbrales definidos.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-5 py-1">

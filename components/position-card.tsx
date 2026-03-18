@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -745,6 +746,9 @@ export function PositionCard({
         <DialogContent className="sm:max-w-[380px]">
           <DialogHeader>
             <DialogTitle>Mi objetivo — {position.ticker}</DialogTitle>
+            <DialogDescription>
+              Define un objetivo de ganancia o limite de perdida en USD para esta posicion.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <p className="text-xs text-muted-foreground">
