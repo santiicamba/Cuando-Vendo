@@ -225,24 +225,28 @@ export function PositionCard({
                       </TooltipContent>
                     </Tooltip>
                   )}
-                  {/* Alert active indicator */}
+                  {/* Alert active indicator — directly tappable */}
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <span className={cn(
-                        "inline-flex items-center gap-1 text-xs rounded px-1.5 py-0.5 border cursor-default",
-                        alertActive
-                          ? "text-primary bg-primary/10 border-primary/30"
-                          : "text-muted-foreground bg-muted/40 border-border"
-                      )}>
+                      <button
+                        onClick={() => setShowAlertDialog(true)}
+                        className={cn(
+                          "inline-flex items-center gap-1 text-xs rounded px-1.5 py-0.5 border cursor-pointer transition-colors hover:shadow-sm",
+                          alertActive
+                            ? "text-primary bg-primary/10 border-primary/50 hover:border-primary/70 hover:bg-primary/15"
+                            : "text-muted-foreground bg-muted/40 border-primary/30 hover:border-primary/50 hover:bg-primary/8"
+                        )}
+                        aria-label="Configurar alertas"
+                      >
                         {alertActive
                           ? <Bell className="w-3 h-3" />
                           : <BellOff className="w-3 h-3" />
                         }
                         {alertActive ? 'Alerta activa' : 'Sin alerta'}
-                      </span>
+                      </button>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>{alertActive ? 'Recibirás una notificación cuando se alcance el umbral configurado.' : 'No hay alertas configuradas para esta posicion.'}</p>
+                      <p>Toca para {alertActive ? 'editar' : 'configurar'} alertas de esta posicion</p>
                     </TooltipContent>
                   </Tooltip>
                 </div>

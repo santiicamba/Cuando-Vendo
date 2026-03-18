@@ -131,12 +131,7 @@ export function MarketDataPanel({
                   )}
                 </div>
               )}
-              {lastCclFetched && cclFetchStatus !== 'loading' && !isEditing && (
-                <p className="text-xs text-muted-foreground">
-                  CCL actualizado a las{' '}
-                  {lastCclFetched.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false })}
-                </p>
-              )}
+
               {cclFetchStatus === 'error' && !isEditing && (
                 <p className="text-xs text-red-500 mt-0.5">
                   No se pudo obtener el CCL. Ingresalo manualmente.
