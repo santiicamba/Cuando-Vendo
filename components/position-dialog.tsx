@@ -390,17 +390,36 @@ export function PositionDialog({ open, onOpenChange, onSave }: PositionDialogPro
           <div className="h-2" />
         </div>
 
-        {/* ── Pinned save button at bottom — MUST persist after updates ── */}
-        <div className="flex-shrink-0 px-5 py-4 border-t border-border bg-background">
-          <Button
+        {/* ── STATIC save button — never conditionally rendered ── */}
+        {/* Uses fixed positioning independent of flex to guarantee visibility on mobile */}
+        <div
+          className="absolute bottom-0 left-0 right-0 px-5 py-4 border-t border-border bg-background z-20"
+          style={{ position: 'sticky', bottom: 0 }}
+        >
+          <button
+            type="button"
             onClick={handleSave}
             disabled={!isValid}
-            style={{ backgroundColor: '#059669' }}
-            className="w-full h-12 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+            style={{
+              backgroundColor: isValid ? '#059669' : '#d1d5db',
+              color: '#ffffff',
+              width: '100%',
+              height: '48px',
+              borderRadius: '8px',
+              fontSize: '14px',
+              fontWeight: 600,
+              cursor: isValid ? 'pointer' : 'not-allowed',
+              opacity: isValid ? 1 : 0.5,
+              border: 'none',
+              WebkitAppearance: 'none',
+              appearance: 'none',
+            }}
           >
             Agregar Posicion
-          </Button>
+          </button>
         </div>
+        {/* Bottom spacer to prevent content overlap with sticky button */}
+        <div className="h-20 flex-shrink-0" aria-hidden="true" />
       </div>
     </div>
   )

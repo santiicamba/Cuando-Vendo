@@ -153,7 +153,25 @@ export function Dashboard() {
       } else if (failures === current.length) {
         toast.error('No se pudo actualizar. Revisa tu conexion.')
       } else if (anySuccess) {
+        // Always show toast as fallback (works everywhere)
         toast.success('Todos los precios fueron actualizados correctamente.')
+        
+        // Try to fire native notification if permission granted (user gesture context)
+        // This runs immediately after button tap which counts as user interaction
+        if (typeof window !== 'undefined' && 'Notification' in window) {
+          if (Notification.permission === 'granted') {
+            try {
+              new Notification('Precios actualizados', {
+                body: 'Todos los precios fueron actualizados correctamente.',
+                icon: '/icon-192.png',
+                tag: 'refresh-success',
+                requireInteraction: false,
+              })
+            } catch {
+              // Silent fail — toast already shown as fallback
+            }
+          }
+        }
       }
     }
   }, [])
