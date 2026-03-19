@@ -128,6 +128,9 @@ interface PositionSnapshot {
   id: string
   ticker: string
   returnUSD: number
+  // Position-level targets (from position.targetGainUSD / position.stopLossUSD)
+  targetGainUSD?: number | null
+  stopLossUSD?: number | null
 }
 
 /**
@@ -147,8 +150,16 @@ export function checkAndFireAlerts(positions: PositionSnapshot[]): void {
   const triggered = getTriggeredMap()
 
   for (const pos of positions) {
-    const alert = alerts[pos.id]
-    if (!alert || !alert.enabled) continue
+    // Merge alert config with position-level targets
+    // Position targets take precedence if no separate alert config exists
+    const alertConfig = alerts[pos.id]
+    
+    // Determine effective thresholds: use position targets if available, otherwise alert config
+    const effectiveTargetGain = pos.targetGainUSD ?? alertConfig?.targetGainUSD ?? null
+    const effectiveStopLoss = pos.stopLossUSD ?? alertConfig?.stopLossUSD ?? null
+    
+    // Skip if no thresholds configured
+    if (effectiveTargetGain === null && effectiveStopLoss === null) continue
 
     // Clone current state (or start fresh)
     const prev: TriggeredState = triggered[pos.id]
@@ -158,8 +169,8 @@ export function checkAndFireAlerts(positions: PositionSnapshot[]): void {
     let positionChanged = false
 
     // --- Target gain check ---
-    if (alert.targetGainUSD !== null) {
-      const threshold = alert.targetGainUSD
+    if (effectiveTargetGain !== null) {
+      const threshold = effectiveTargetGain
       if (pos.returnUSD >= threshold) {
         if (!prev.targetFired) {
           fireNotification(
@@ -179,8 +190,8 @@ export function checkAndFireAlerts(positions: PositionSnapshot[]): void {
     }
 
     // --- Stop loss check ---
-    if (alert.stopLossUSD !== null) {
-      const threshold = -Math.abs(alert.stopLossUSD)
+    if (effectiveStopLoss !== null) {
+      const threshold = -Math.abs(effectiveStopLoss)
       if (pos.returnUSD <= threshold) {
         if (!prev.stopFired) {
           fireNotification(

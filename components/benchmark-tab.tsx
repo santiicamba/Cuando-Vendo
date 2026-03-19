@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { TrendingUp, TrendingDown, Calendar, Award, AlertCircle, Home } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -28,6 +28,7 @@ export function BenchmarkTab({ onSwitchToHome }: BenchmarkTabProps) {
   const [benchmarkData, setBenchmarkData] = useState<BenchmarkData>({ spy: null, ccl: null, plazoFijo: null })
   const [tnaInput, setTnaInput] = useState('75')
   const [isFetchingSPY, setIsFetchingSPY] = useState(false)
+  const hasFetchedSPY = useRef(false)
 
   // Load positions and calculate
   useEffect(() => {
@@ -125,14 +126,14 @@ export function BenchmarkTab({ onSwitchToHome }: BenchmarkTabProps) {
     }
   }, [tnaInput, daysInvested])
 
-  // Fetch SPY once on mount when positions exist
+  // Fetch SPY exactly once when positions exist — use ref to prevent loops
   useEffect(() => {
-    if (!isLoading && positions.length > 0 && earliestDate) {
+    if (!isLoading && positions.length > 0 && earliestDate && !hasFetchedSPY.current) {
+      hasFetchedSPY.current = true
       fetchSPYData()
     }
-    // Only run once on component mount, not on fetchSPYData changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoading, positions.length, earliestDate])
+  }, [isLoading, positions.length])
 
   // Best and worst performer
   const sortedByUSD = [...calculatedPositions].sort((a, b) => b.returnUSD - a.returnUSD)

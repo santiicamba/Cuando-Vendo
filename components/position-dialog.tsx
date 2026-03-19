@@ -390,12 +390,13 @@ export function PositionDialog({ open, onOpenChange, onSave }: PositionDialogPro
           <div className="h-2" />
         </div>
 
-        {/* ── Pinned save button at bottom ── */}
+        {/* ── Pinned save button at bottom — MUST persist after updates ── */}
         <div className="flex-shrink-0 px-5 py-4 border-t border-border bg-background">
           <Button
             onClick={handleSave}
             disabled={!isValid}
-            className="w-full h-12 text-sm font-semibold bg-primary hover:bg-primary/90 text-white"
+            style={{ backgroundColor: '#059669' }}
+            className="w-full h-12 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
           >
             Agregar Posicion
           </Button>

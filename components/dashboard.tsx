@@ -133,7 +133,14 @@ export function Dashboard() {
       const { calculatePosition } = await import('@/lib/types')
       const snapshots = updated.map(pos => {
         const calc = calculatePosition(pos, cclRate)
-        return { id: pos.id, ticker: pos.ticker, returnUSD: calc.returnUSD }
+        return {
+          id: pos.id,
+          ticker: pos.ticker,
+          returnUSD: calc.returnUSD,
+          // Pass position-level targets so alerts can check them
+          targetGainUSD: pos.targetGainUSD,
+          stopLossUSD: pos.stopLossUSD,
+        }
       })
       checkAndFireAlerts(snapshots)
     }
