@@ -178,9 +178,8 @@ export function Dashboard() {
   const handleCCLChange = useCallback((rate: number) => {
     const newMarketData = updateCCLRate(rate)
     setMarketData(newMarketData)
-    toast.success('Dolar CCL actualizado', {
-      description: `Nuevo valor: $${rate.toLocaleString('es-AR')}`,
-    })
+    // No toast here — CCL updates are silent. The single manual-refresh toast
+    // is fired inside refreshAllPrices when silent=false.
   }, [])
 
   const handleAddPosition = useCallback((data: {

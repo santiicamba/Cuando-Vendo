@@ -51,15 +51,16 @@ export function MarketDataPanel({
     }
   }, [onCCLChange])
 
-  // Auto-fetch CCL on mount
+  // Auto-fetch CCL silently on mount — no toast
   useEffect(() => {
     fetchCCL()
   }, [fetchCCL])
 
-  // Unified refresh handler: fires both simultaneously
+  // Unified refresh: fetch CCL (silent) + delegate stock price refresh to parent.
+  // The single "Todos los precios fueron actualizados" toast fires inside refreshAllPrices.
   const handleRefreshAll = useCallback(() => {
-    fetchCCL()
-    onRefreshAll()
+    fetchCCL()   // silent — handleCCLChange does not toast
+    onRefreshAll() // fires refreshAllPrices(false) → one toast on success
   }, [fetchCCL, onRefreshAll])
 
   const isAnyRefreshing = isRefreshing || cclFetchStatus === 'loading'
