@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Calendar, TrendingUp, TrendingDown, MoreVertical, Pencil, Trash2, DollarSign, Clock, Info, ArrowUpDown, Banknote, BarChart3, AlertTriangle, ChevronDown, Plus, Target, Bell, BellOff } from 'lucide-react'
+import { Calendar, TrendingUp, TrendingDown, MoreVertical, Pencil, Trash2, DollarSign, Clock, Info, ArrowUpDown, Banknote, BarChart3, AlertTriangle, ChevronDown, Plus, Target } from 'lucide-react'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -45,9 +45,7 @@ import {
 } from '@/components/ui/collapsible'
 import { RatioCorrectionModal } from '@/components/ratio-correction-modal'
 import { PurchaseDialog } from '@/components/purchase-dialog'
-import { AlertDialogModal } from '@/components/alert-dialog-modal'
 import { CalculatedPosition, Purchase, formatARS, formatUSD, formatPercent } from '@/lib/types'
-import { getAlerts } from '@/lib/alerts'
 import { cn } from '@/lib/utils'
 
 interface PositionCardProps {
@@ -75,20 +73,11 @@ export function PositionCard({
   const [showRatioModal, setShowRatioModal] = useState(false)
   const [showPurchaseDialog, setShowPurchaseDialog] = useState(false)
   const [showTargetDialog, setShowTargetDialog] = useState(false)
-  const [showAlertDialog, setShowAlertDialog] = useState(false)
   const [editingPurchase, setEditingPurchase] = useState<Purchase | null>(null)
   const [deletingPurchaseId, setDeletingPurchaseId] = useState<string | null>(null)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [targetGainInput, setTargetGainInput] = useState('')
   const [stopLossInput, setStopLossInput] = useState('')
-  const [alertActive, setAlertActive] = useState(false)
-
-  // Sync alert indicator from localStorage whenever card renders or alert dialog closes
-  useEffect(() => {
-    const alerts = getAlerts()
-    const config = alerts[position.id]
-    setAlertActive(!!(config?.enabled && (config.targetGainUSD !== null || config.stopLossUSD !== null)))
-  }, [position.id, showAlertDialog])
   
   const isPositiveARS = position.returnARS >= 0
 
@@ -226,30 +215,6 @@ export function PositionCard({
                       </TooltipContent>
                     </Tooltip>
                   )}
-                  {/* Alert active indicator — directly tappable */}
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        onClick={() => setShowAlertDialog(true)}
-                        className={cn(
-                          "inline-flex items-center gap-1 text-xs rounded px-1.5 py-0.5 border cursor-pointer transition-colors hover:shadow-sm",
-                          alertActive
-                            ? "text-primary bg-primary/10 border-primary/50 hover:border-primary/70 hover:bg-primary/15"
-                            : "text-muted-foreground bg-muted/40 border-primary/30 hover:border-primary/50 hover:bg-primary/8"
-                        )}
-                        aria-label="Configurar alertas"
-                      >
-                        {alertActive
-                          ? <Bell className="w-3 h-3" />
-                          : <BellOff className="w-3 h-3" />
-                        }
-                        {alertActive ? 'Alerta activa' : 'Sin alerta'}
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Toca para {alertActive ? 'editar' : 'configurar'} alertas de esta posicion</p>
-                    </TooltipContent>
-                  </Tooltip>
                 </div>
                 <p className="text-sm text-muted-foreground mt-1 line-clamp-1">
                   {position.name}
@@ -265,11 +230,6 @@ export function PositionCard({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setShowAlertDialog(true)}>
-                  <Bell className="mr-2 h-4 w-4" />
-                  Configurar alerta
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
                 <DropdownMenuItem 
                   onClick={() => setShowDeleteDialog(true)}
                   className="text-loss focus:text-loss"
@@ -796,13 +756,6 @@ export function PositionCard({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <AlertDialogModal
-        open={showAlertDialog}
-        onOpenChange={setShowAlertDialog}
-        positionId={position.id}
-        ticker={position.ticker}
-        currentReturnUSD={position.returnUSD}
-      />
     </TooltipProvider>
   )
 }
