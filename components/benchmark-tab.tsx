@@ -125,12 +125,14 @@ export function BenchmarkTab({ onSwitchToHome }: BenchmarkTabProps) {
     }
   }, [tnaInput, daysInvested])
 
-  // Fetch SPY on mount when positions exist
+  // Fetch SPY once on mount when positions exist
   useEffect(() => {
     if (!isLoading && positions.length > 0 && earliestDate) {
       fetchSPYData()
     }
-  }, [isLoading, positions.length, earliestDate, fetchSPYData])
+    // Only run once on component mount, not on fetchSPYData changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading, positions.length, earliestDate])
 
   // Best and worst performer
   const sortedByUSD = [...calculatedPositions].sort((a, b) => b.returnUSD - a.returnUSD)
@@ -236,7 +238,7 @@ export function BenchmarkTab({ onSwitchToHome }: BenchmarkTabProps) {
                       {formatPercent(benchmarkData.spy.returnUSD)} USD
                     </p>
                   </div>
-                  {getBadge(benchmarkData.spy.returnUSD, portfolioReturnUSD)}
+                  {getBadge(portfolioReturnUSD, benchmarkData.spy.returnUSD)}
                 </div>
               ) : (
                 <span className="text-xs text-muted-foreground">Cargando...</span>
@@ -253,7 +255,7 @@ export function BenchmarkTab({ onSwitchToHome }: BenchmarkTabProps) {
                   <p className={cn("text-sm font-semibold", benchmarkData.ccl.returnARS >= 0 ? "text-success" : "text-loss")}>
                     {formatPercent(benchmarkData.ccl.returnARS)} ARS
                   </p>
-                  {getBadge(benchmarkData.ccl.returnARS, portfolioReturnARS)}
+                  {getBadge(portfolioReturnARS, benchmarkData.ccl.returnARS)}
                 </div>
               ) : (
                 <span className="text-xs text-muted-foreground">—</span>
@@ -270,7 +272,7 @@ export function BenchmarkTab({ onSwitchToHome }: BenchmarkTabProps) {
                   <p className={cn("text-sm font-semibold", benchmarkData.plazoFijo.returnARS >= 0 ? "text-success" : "text-loss")}>
                     {formatPercent(benchmarkData.plazoFijo.returnARS)} ARS
                   </p>
-                  {getBadge(benchmarkData.plazoFijo.returnARS, portfolioReturnARS)}
+                  {getBadge(portfolioReturnARS, benchmarkData.plazoFijo.returnARS)}
                 </div>
               ) : (
                 <span className="text-xs text-muted-foreground">—</span>

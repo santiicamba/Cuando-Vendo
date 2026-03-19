@@ -25,9 +25,9 @@ export function SimulatorTab({ onSwitchToHome }: SimulatorTabProps) {
   const [currentCCL, setCurrentCCL] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
 
-  // Slider states
-  const [cclChange, setCclChange] = useState(0) // -50 to +100
-  const [globalMarketChange, setGlobalMarketChange] = useState(0) // -50 to +100
+  // Slider states (center = 0%)
+  const [cclChange, setCclChange] = useState(0) // -50 to +100 (0 is center at 0% change)
+  const [globalMarketChange, setGlobalMarketChange] = useState(0) // -50 to +100 (0 is center at 0% change)
   const [positionOverrides, setPositionOverrides] = useState<Record<string, number>>({}) // position id -> change %
   const [adjustOpen, setAdjustOpen] = useState(false)
 
@@ -199,9 +199,9 @@ export function SimulatorTab({ onSwitchToHome }: SimulatorTabProps) {
             step={1}
             className="[&_[data-slot=slider-range]]:bg-primary [&_[data-slot=slider-thumb]]:border-primary"
           />
-          <div className="flex justify-between text-xs text-muted-foreground">
+          <div className="flex justify-between text-xs text-muted-foreground px-1">
             <span>-50%</span>
-            <span>0%</span>
+            <span className="absolute left-1/3">0%</span>
             <span>+100%</span>
           </div>
         </div>
@@ -219,9 +219,9 @@ export function SimulatorTab({ onSwitchToHome }: SimulatorTabProps) {
             step={1}
             className="[&_[data-slot=slider-range]]:bg-primary [&_[data-slot=slider-thumb]]:border-primary"
           />
-          <div className="flex justify-between text-xs text-muted-foreground">
+          <div className="flex justify-between text-xs text-muted-foreground px-1">
             <span>-50%</span>
-            <span>0%</span>
+            <span className="absolute left-1/3">0%</span>
             <span>+100%</span>
           </div>
         </div>
