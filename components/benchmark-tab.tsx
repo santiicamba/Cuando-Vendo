@@ -30,6 +30,26 @@ export function BenchmarkTab({ onSwitchToHome }: BenchmarkTabProps) {
   const [isFetchingSPY, setIsFetchingSPY] = useState(false)
   const hasFetchedSPY = useRef(false)
 
+  // Load TNA from localStorage on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('tna_plazo_fijo')
+      if (stored) setTnaInput(stored)
+    } catch {
+      // localStorage not available
+    }
+  }, [])
+
+  // Save TNA to localStorage on change
+  const handleTnaChange = (value: string) => {
+    setTnaInput(value)
+    try {
+      localStorage.setItem('tna_plazo_fijo', value)
+    } catch {
+      // localStorage not available
+    }
+  }
+
   // Load positions and calculate
   useEffect(() => {
     const storedPositions = getPositions()
@@ -196,7 +216,7 @@ export function BenchmarkTab({ onSwitchToHome }: BenchmarkTabProps) {
             step="0.1"
             min="0"
             value={tnaInput}
-            onChange={(e) => setTnaInput(e.target.value)}
+            onChange={(e) => handleTnaChange(e.target.value)}
             className="h-9"
           />
         </div>
@@ -239,7 +259,7 @@ export function BenchmarkTab({ onSwitchToHome }: BenchmarkTabProps) {
                       {formatPercent(benchmarkData.spy.returnUSD)} USD
                     </p>
                   </div>
-                  {getBadge(portfolioReturnUSD, benchmarkData.spy.returnUSD)}
+                  {getBadge(benchmarkData.spy.returnUSD, portfolioReturnUSD)}
                 </div>
               ) : (
                 <span className="text-xs text-muted-foreground">Cargando...</span>
@@ -256,7 +276,7 @@ export function BenchmarkTab({ onSwitchToHome }: BenchmarkTabProps) {
                   <p className={cn("text-sm font-semibold", benchmarkData.ccl.returnARS >= 0 ? "text-success" : "text-loss")}>
                     {formatPercent(benchmarkData.ccl.returnARS)} ARS
                   </p>
-                  {getBadge(portfolioReturnARS, benchmarkData.ccl.returnARS)}
+                  {getBadge(benchmarkData.ccl.returnARS, portfolioReturnARS)}
                 </div>
               ) : (
                 <span className="text-xs text-muted-foreground">—</span>
@@ -273,7 +293,7 @@ export function BenchmarkTab({ onSwitchToHome }: BenchmarkTabProps) {
                   <p className={cn("text-sm font-semibold", benchmarkData.plazoFijo.returnARS >= 0 ? "text-success" : "text-loss")}>
                     {formatPercent(benchmarkData.plazoFijo.returnARS)} ARS
                   </p>
-                  {getBadge(portfolioReturnARS, benchmarkData.plazoFijo.returnARS)}
+                  {getBadge(benchmarkData.plazoFijo.returnARS, portfolioReturnARS)}
                 </div>
               ) : (
                 <span className="text-xs text-muted-foreground">—</span>
