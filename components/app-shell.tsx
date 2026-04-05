@@ -1,16 +1,18 @@
 'use client'
 
 import { useState } from 'react'
-import { Home, BarChart3, SlidersHorizontal } from 'lucide-react'
+import { Home, BarChart3, SlidersHorizontal, PieChart } from 'lucide-react'
 import { Dashboard } from '@/components/dashboard'
 import { BenchmarkTab } from '@/components/benchmark-tab'
+import { PortfolioChartTab } from '@/components/portfolio-chart-tab'
 import { SimulatorTab } from '@/components/simulator-tab'
 import { cn } from '@/lib/utils'
 
-type TabId = 'home' | 'benchmark' | 'simulator'
+type TabId = 'home' | 'cartera' | 'benchmark' | 'simulator'
 
 const tabs: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: 'home', label: 'Inicio', icon: Home },
+  { id: 'cartera', label: 'Mi Cartera', icon: PieChart },
   { id: 'benchmark', label: 'Como me esta yendo?', icon: BarChart3 },
   { id: 'simulator', label: 'Que pasaria si?', icon: SlidersHorizontal },
 ]
@@ -24,6 +26,12 @@ export function AppShell() {
       <div className={cn(activeTab === 'home' ? 'block' : 'hidden')}>
         <Dashboard />
       </div>
+
+      {activeTab === 'cartera' && (
+        <div className="container mx-auto px-4 py-6 animate-in fade-in slide-in-from-right-4 duration-300">
+          <PortfolioChartTab onSwitchToHome={() => setActiveTab('home')} />
+        </div>
+      )}
 
       {activeTab === 'benchmark' && (
         <div className="container mx-auto px-4 py-6 animate-in fade-in slide-in-from-right-4 duration-300">
