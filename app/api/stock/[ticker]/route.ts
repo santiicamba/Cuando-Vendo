@@ -1,5 +1,12 @@
 import { NextResponse } from 'next/server'
 
+// Known MERVAL tickers that require .BA suffix for Yahoo Finance
+const MERVAL_TICKERS = new Set([
+  'GGAL', 'YPFD', 'BMA', 'BBAR', 'SUPV', 'CRES', 'ALUA', 'TXAR', 'PAMP',
+  'TGSU2', 'TGNO4', 'CGPA2', 'COME', 'MIRG', 'MOLI', 'LOMA', 'HARG', 'BYMA',
+  'CEPU', 'EDN', 'TECO2', 'VALO'
+])
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ ticker: string }> }
@@ -10,8 +17,13 @@ export async function GET(
   const period2 = searchParams.get('period2')
   
   try {
+    // Build Yahoo Finance ticker: append .BA for MERVAL stocks
+    const yahooTicker = MERVAL_TICKERS.has(ticker.toUpperCase())
+      ? `${ticker}.BA`
+      : ticker
+
     // Build URL with optional historical range
-    let url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}`
+    let url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooTicker)}`
     if (period1 && period2) {
       url += `?period1=${period1}&period2=${period2}&interval=1d`
     }
@@ -58,6 +70,7 @@ export async function GET(
       }
     }
 
+    // Always return the clean ticker (without .BA) to the client
     return NextResponse.json({
       success: true,
       ticker,
