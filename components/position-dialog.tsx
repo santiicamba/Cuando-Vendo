@@ -83,11 +83,19 @@ export function PositionDialog({ open, onOpenChange, onSave }: PositionDialogPro
     }
   }, [open])
 
+  const isMerval = selectedCedear?.market === 'MERVAL'
+
   const handleCedearSelect = (cedear: CEDEAR | null) => {
     setSelectedCedear(cedear)
     if (cedear) {
       if (!useCustomRatio) setCustomRatio(cedear.ratio.toString())
-      fetchStockPrice(cedear.ticker)
+      // Only auto-fetch price for non-Merval tickers
+      if (cedear.market !== 'MERVAL') {
+        fetchStockPrice(cedear.ticker)
+      } else {
+        setStockPriceUSD('')
+        setPriceFetchStatus('idle')
+      }
     } else {
       setStockPriceUSD('')
       setPriceFetchStatus('idle')
@@ -95,6 +103,28 @@ export function PositionDialog({ open, onOpenChange, onSave }: PositionDialogPro
   }
 
   const handleSave = () => {
+    if (isMerval) {
+      if (!selectedCedear || !purchaseDate || !priceARS || !quantity) return
+      onSave({
+        ticker: selectedCedear.ticker,
+        name: selectedCedear.name,
+        ratio: 1,
+        ratioOverridden: false,
+        market: selectedCedear.market,
+        purchase: {
+          date: purchaseDate.toISOString(),
+          quantity: parseFloat(quantity),
+          priceARS: parseFloat(priceARS),
+          cclAtPurchase: 1,
+          stockPriceUSD: parseFloat(priceARS), // ARS price stored in stockPriceUSD field
+        },
+        targetGainUSD: targetGainUSD ? parseFloat(targetGainUSD) : null,
+        stopLossUSD: stopLossUSD ? parseFloat(stopLossUSD) : null,
+      })
+      onOpenChange(false)
+      return
+    }
+
     if (!selectedCedear || !purchaseDate || !priceARS || !cclAtPurchase || !quantity || !stockPriceUSD) return
 
     const effectiveRatio = useCustomRatio && customRatio
@@ -130,7 +160,9 @@ export function PositionDialog({ open, onOpenChange, onSave }: PositionDialogPro
     onOpenChange(false)
   }
 
-  const isValid = selectedCedear && purchaseDate && priceARS && cclAtPurchase && quantity && stockPriceUSD
+  const isValid = isMerval
+    ? !!(selectedCedear && purchaseDate && priceARS && quantity)
+    : !!(selectedCedear && purchaseDate && priceARS && cclAtPurchase && quantity && stockPriceUSD)
 
   if (!open) return null
 
@@ -167,7 +199,7 @@ export function PositionDialog({ open, onOpenChange, onSave }: PositionDialogPro
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-base font-semibold text-foreground">Agregar Posicion</h2>
-              <p className="text-xs text-muted-foreground">Agrega una nueva posicion de CEDEAR</p>
+              <p className="text-xs text-muted-foreground">Agrega una nueva posicion a tu cartera</p>
             </div>
             <button
               onClick={() => onOpenChange(false)}
@@ -180,7 +212,7 @@ export function PositionDialog({ open, onOpenChange, onSave }: PositionDialogPro
 
           {/* Ticker selector — always visible at top */}
           <div className="space-y-1.5">
-            <Label className="text-sm">CEDEAR</Label>
+            <Label className="text-sm">Activo</Label>
             <CEDEARCombobox
               value={selectedCedear?.ticker || ''}
               onSelect={handleCedearSelect}
@@ -223,7 +255,7 @@ export function PositionDialog({ open, onOpenChange, onSave }: PositionDialogPro
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="quantity">Cantidad de CEDEARs</Label>
+            <Label htmlFor="quantity">Cantidad</Label>
             <Input
               id="quantity"
               type="number"
@@ -236,9 +268,10 @@ export function PositionDialog({ open, onOpenChange, onSave }: PositionDialogPro
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          {isMerval ? (
+            /* Merval: single price field in ARS, no CCL */
             <div className="space-y-1.5">
-              <Label htmlFor="priceARS">Precio por Unidad (ARS)</Label>
+              <Label htmlFor="priceARS">Precio en ARS (al comprar)</Label>
               <Input
                 id="priceARS"
                 type="number"
@@ -250,21 +283,39 @@ export function PositionDialog({ open, onOpenChange, onSave }: PositionDialogPro
                 className="bg-card"
               />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="cclAtPurchase">CCL al Comprar</Label>
-              <Input
-                id="cclAtPurchase"
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder="ej: 1150"
-                value={cclAtPurchase}
-                onChange={(e) => setCclAtPurchase(e.target.value)}
-                className="bg-card"
-              />
+          ) : (
+            /* Non-Merval: price + CCL grid */
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="priceARS">Precio por Unidad (ARS)</Label>
+                <Input
+                  id="priceARS"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="ej: 15000"
+                  value={priceARS}
+                  onChange={(e) => setPriceARS(e.target.value)}
+                  className="bg-card"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="cclAtPurchase">CCL al Comprar</Label>
+                <Input
+                  id="cclAtPurchase"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="ej: 1150"
+                  value={cclAtPurchase}
+                  onChange={(e) => setCclAtPurchase(e.target.value)}
+                  className="bg-card"
+                />
+              </div>
             </div>
-          </div>
+          )}
 
+          {!isMerval && (
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <Label htmlFor="stockPriceUSD">Precio del Activo (USD)</Label>
@@ -311,8 +362,10 @@ export function PositionDialog({ open, onOpenChange, onSave }: PositionDialogPro
                 : 'Precio actual de la accion en el mercado de origen'}
             </p>
           </div>
+          )}
 
-          {/* Ratio section */}
+          {/* Ratio section — hidden for Merval */}
+          {!isMerval && (
           <div className="border border-border rounded-lg p-4 space-y-3">
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
@@ -346,8 +399,7 @@ export function PositionDialog({ open, onOpenChange, onSave }: PositionDialogPro
               </a>
             </p>
           </div>
-
-          {/* Optional targets */}
+          )}
           <div className="border border-border rounded-lg p-4 space-y-3">
             <div>
               <p className="text-sm font-medium text-foreground">Mi objetivo</p>

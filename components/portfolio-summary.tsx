@@ -57,15 +57,16 @@ export function PortfolioSummary({ summary }: PortfolioSummaryProps) {
           </CardContent>
         </Card>
 
-        {/* Three Returns + Hoy Card */}
+        {/* Three Returns + Hoy Card — only show if portfolio has CEDEARs */}
+        {summary.hasCedears && (
         <Card className="bg-card border-border/50 lg:col-span-1">
           <CardContent className="pt-0">
             <div className="space-y-2">
-              {/* Return USD */}
+              {/* Return USD (CEDEARs) */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <DollarSign className={cn("w-4 h-4", isPositiveUSD ? "text-success" : "text-loss")} />
-                  <span className="text-xs text-muted-foreground">USD</span>
+                  <span className="text-xs text-muted-foreground">USD (CEDEARs)</span>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button className="text-muted-foreground hover:text-foreground">
@@ -109,11 +110,11 @@ export function PortfolioSummary({ summary }: PortfolioSummaryProps) {
                 </div>
               </div>
 
-              {/* CCL Effect */}
+              {/* CCL Effect (CEDEARs) */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <ArrowUpDown className={cn("w-4 h-4", isPositiveCCL ? "text-success" : "text-loss")} />
-                  <span className="text-xs text-muted-foreground">CCL</span>
+                  <span className="text-xs text-muted-foreground">CCL (CEDEARs)</span>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button className="text-muted-foreground hover:text-foreground">
@@ -155,6 +156,60 @@ export function PortfolioSummary({ summary }: PortfolioSummaryProps) {
             </div>
           </CardContent>
         </Card>
+        )}
+
+        {/* Only show ARS return when no CEDEARs (pure Merval portfolio) */}
+        {!summary.hasCedears && (
+        <Card className="bg-card border-border/50 lg:col-span-1">
+          <CardContent className="pt-0">
+            <div className="space-y-2">
+              {/* Return ARS only */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <Banknote className={cn("w-4 h-4", isPositiveARS ? "text-success" : "text-loss")} />
+                  <span className="text-xs text-muted-foreground">ARS</span>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button className="text-muted-foreground hover:text-foreground">
+                        <Info className="w-3 h-3" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Rendimiento total en pesos</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+                <div className="flex items-center gap-1">
+                  {isPositiveARS ? <TrendingUp className="w-3 h-3 text-success" /> : <TrendingDown className="w-3 h-3 text-loss" />}
+                  <span className={cn("text-sm font-bold", isPositiveARS ? "text-success" : "text-loss")}>
+                    {formatPercent(summary.overallReturnARS)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Hoy separator + row */}
+              {summary.dailyChangeARS !== null && summary.dailyChangePercent !== null && (
+                <>
+                  <div className="border-t border-border my-1" />
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-muted-foreground">Hoy</span>
+                    <span className={cn(
+                      "text-sm font-bold tabular-nums",
+                      summary.dailyChangePercent > 0 ? "text-success" :
+                      summary.dailyChangePercent < 0 ? "text-loss" :
+                      "text-muted-foreground"
+                    )}>
+                      {formatARS(summary.dailyChangeARS)}
+                      {' '}
+                      {formatPercent(summary.dailyChangePercent)}
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+        )}
 
         {/* Best/Worst Performers */}
         <Card className="bg-card border-border/50">

@@ -64,6 +64,7 @@ export interface CalculatedPosition extends Position {
 
 export function calculatePosition(position: Position, cclRate: number): CalculatedPosition {
   const purchases = position.purchases
+  const isMerval = position.market === "MERVAL"
   
   // Calculate totals and weighted averages
   const totalQuantity = purchases.reduce((sum, p) => sum + p.quantity, 0)
@@ -80,53 +81,83 @@ export function calculatePosition(position: Position, cclRate: number): Calculat
     ? purchases.reduce((sum, p) => sum + p.quantity * p.stockPriceUSD, 0) / totalQuantity 
     : 0
 
-  // Theoretical Price (ARS) = (Current stock price in USD / Ratio) × CCL rate
-  const theoreticalPrice = (position.currentStockPriceUSD / position.ratio) * cclRate
-  
-  // Current value ARS
-  const currentValue = theoreticalPrice * totalQuantity
-  
-  // P&L in ARS
-  const profitLoss = currentValue - totalInvested
-  
-  // Price difference per unit
-  const priceDifference = theoreticalPrice - avgPurchasePriceARS
+  let theoreticalPrice: number
+  let currentValue: number
+  let profitLoss: number
+  let priceDifference: number
+  let returnARS: number
+  let returnUSD: number
+  let cclEffect: number
+  let purchasePriceUSD: number
+  let currentPriceUSD: number
+  let dailyChangeUSD: number | null
+  let dailyChangePercent: number | null
+  let dailyChangeARS: number | null
 
-  // 1. Return in ARS (total return including stock + exchange rate movement)
-  const returnARS = avgPurchasePriceARS > 0 
-    ? ((theoreticalPrice / avgPurchasePriceARS) - 1) * 100 
-    : 0
-  
-  // 2. Return in USD (pure stock performance, CCL-neutral)
-  const purchasePriceUSD = avgCclAtPurchase > 0 
-    ? avgPurchasePriceARS / avgCclAtPurchase 
-    : 0
-  const currentPriceUSD = position.currentStockPriceUSD / position.ratio
-  const returnUSD = purchasePriceUSD > 0 
-    ? ((currentPriceUSD / purchasePriceUSD) - 1) * 100 
-    : 0
-  
-  // 3. CCL Effect
-  const cclEffect = avgCclAtPurchase > 0 
-    ? ((cclRate / avgCclAtPurchase) - 1) * 100 
-    : 0
+  if (isMerval) {
+    // For Merval: prices are in ARS, no USD conversion, no CCL, no ratio
+    theoreticalPrice = position.currentStockPriceUSD  // price stored directly in ARS
+    currentValue = theoreticalPrice * totalQuantity
+    profitLoss = currentValue - totalInvested
+    priceDifference = theoreticalPrice - avgPurchasePriceARS
+    returnARS = avgPurchasePriceARS > 0 ? ((theoreticalPrice / avgPurchasePriceARS) - 1) * 100 : 0
+    returnUSD = 0
+    cclEffect = 0
+    purchasePriceUSD = 0
+    currentPriceUSD = 0
+    dailyChangeUSD = null
+    dailyChangePercent = null
+    dailyChangeARS = null
+  } else {
+    // For non-Merval (CEDEARs): existing logic
+    // Theoretical Price (ARS) = (Current stock price in USD / Ratio) × CCL rate
+    theoreticalPrice = (position.currentStockPriceUSD / position.ratio) * cclRate
+    
+    // Current value ARS
+    currentValue = theoreticalPrice * totalQuantity
+    
+    // P&L in ARS
+    profitLoss = currentValue - totalInvested
+    
+    // Price difference per unit
+    priceDifference = theoreticalPrice - avgPurchasePriceARS
+
+    // 1. Return in ARS (total return including stock + exchange rate movement)
+    returnARS = avgPurchasePriceARS > 0 
+      ? ((theoreticalPrice / avgPurchasePriceARS) - 1) * 100 
+      : 0
+    
+    // 2. Return in USD (pure stock performance, CCL-neutral)
+    purchasePriceUSD = avgCclAtPurchase > 0 
+      ? avgPurchasePriceARS / avgCclAtPurchase 
+      : 0
+    currentPriceUSD = position.currentStockPriceUSD / position.ratio
+    returnUSD = purchasePriceUSD > 0 
+      ? ((currentPriceUSD / purchasePriceUSD) - 1) * 100 
+      : 0
+    
+    // 3. CCL Effect
+    cclEffect = avgCclAtPurchase > 0 
+      ? ((cclRate / avgCclAtPurchase) - 1) * 100 
+      : 0
+
+    // Daily change
+    dailyChangeUSD = null
+    dailyChangePercent = null
+    dailyChangeARS = null
+
+    if (position.previousCloseUSD !== null) {
+      dailyChangeUSD = position.currentStockPriceUSD - position.previousCloseUSD
+      dailyChangePercent = (dailyChangeUSD / position.previousCloseUSD) * 100
+      dailyChangeARS = (dailyChangeUSD / position.ratio) * cclRate * totalQuantity
+    }
+  }
 
   // Days held (from first purchase)
   const sortedPurchases = [...purchases].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
   const firstPurchaseDate = sortedPurchases[0]?.date || position.createdAt
   const today = new Date()
   const daysHeld = Math.floor((today.getTime() - new Date(firstPurchaseDate).getTime()) / (1000 * 60 * 60 * 24))
-
-  // Daily change
-  let dailyChangeUSD: number | null = null
-  let dailyChangePercent: number | null = null
-  let dailyChangeARS: number | null = null
-
-  if (position.previousCloseUSD !== null) {
-    dailyChangeUSD = position.currentStockPriceUSD - position.previousCloseUSD
-    dailyChangePercent = (dailyChangeUSD / position.previousCloseUSD) * 100
-    dailyChangeARS = (dailyChangeUSD / position.ratio) * cclRate * totalQuantity
-  }
 
   return {
     ...position,
@@ -162,6 +193,7 @@ export interface PortfolioSummary {
   worstPerformer: CalculatedPosition | null
   dailyChangeARS: number | null
   dailyChangePercent: number | null
+  hasCedears: boolean
 }
 
 export function calculatePortfolioSummary(positions: CalculatedPosition[]): PortfolioSummary {
@@ -176,20 +208,30 @@ export function calculatePortfolioSummary(positions: CalculatedPosition[]): Port
       worstPerformer: null,
       dailyChangeARS: null,
       dailyChangePercent: null,
+      hasCedears: false,
     }
   }
   
   const totalInvested = positions.reduce((sum, p) => sum + p.totalInvested, 0)
   const totalCurrentValue = positions.reduce((sum, p) => sum + p.currentValue, 0)
   
+  // Check if any position is a CEDEAR (not MERVAL)
+  const hasCedears = positions.some(p => p.market !== "MERVAL")
+  
+  // Only consider non-Merval positions for USD return and CCL effect
+  const cedearPositions = positions.filter(p => p.market !== "MERVAL")
+  const cedearInvested = cedearPositions.reduce((sum, p) => sum + p.totalInvested, 0)
+  
   const overallReturnARS = totalInvested > 0 
     ? positions.reduce((sum, p) => sum + p.returnARS * p.totalInvested, 0) / totalInvested 
     : 0
-  const overallReturnUSD = totalInvested > 0 
-    ? positions.reduce((sum, p) => sum + p.returnUSD * p.totalInvested, 0) / totalInvested 
+  
+  const overallReturnUSD = cedearInvested > 0
+    ? cedearPositions.reduce((sum, p) => sum + p.returnUSD * p.totalInvested, 0) / cedearInvested
     : 0
-  const overallCclEffect = totalInvested > 0 
-    ? positions.reduce((sum, p) => sum + p.cclEffect * p.totalInvested, 0) / totalInvested 
+  
+  const overallCclEffect = cedearInvested > 0
+    ? cedearPositions.reduce((sum, p) => sum + p.cclEffect * p.totalInvested, 0) / cedearInvested
     : 0
 
   const positionsWithDaily = positions.filter(p => p.dailyChangeARS !== null)
@@ -215,6 +257,7 @@ export function calculatePortfolioSummary(positions: CalculatedPosition[]): Port
     worstPerformer,
     dailyChangeARS,
     dailyChangePercent,
+    hasCedears,
   }
 }
 
