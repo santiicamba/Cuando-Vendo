@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Calendar, TrendingUp, TrendingDown, MoreVertical, Pencil, Trash2, DollarSign, Clock, Info, ArrowUpDown, Banknote, BarChart3, AlertTriangle, ChevronDown, Plus, Target } from 'lucide-react'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -19,7 +19,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
@@ -59,11 +58,11 @@ interface PositionCardProps {
   onUpdateTargets: (positionId: string, targetGainUSD: number | null, stopLossUSD: number | null) => void
 }
 
-export function PositionCard({ 
-  position, 
-  cclRate, 
-  onDelete, 
-  onRatioUpdate, 
+export function PositionCard({
+  position,
+  cclRate,
+  onDelete,
+  onRatioUpdate,
   onAddPurchase,
   onEditPurchase,
   onDeletePurchase,
@@ -78,24 +77,25 @@ export function PositionCard({
   const [historyOpen, setHistoryOpen] = useState(false)
   const [targetGainInput, setTargetGainInput] = useState('')
   const [stopLossInput, setStopLossInput] = useState('')
-  
+
   const isPositiveARS = position.returnARS >= 0
+  const isMerval = position.market === 'MERVAL'
 
   // --- Target system ---
   const hasTarget = position.targetGainUSD !== null || position.stopLossUSD !== null
 
-  // Determine target state using returnUSD (pure stock performance)
-  const returnUSD = position.returnUSD
+  // For Merval: compare against returnARS. For CEDEARs: compare against returnUSD.
+  const returnForTarget = isMerval ? position.returnARS : position.returnUSD
   const targetGain = position.targetGainUSD   // e.g. 20 = +20%
   const stopLoss = position.stopLossUSD       // e.g. 10 = -10% threshold (stored as positive)
 
-  const goalReached = targetGain !== null && returnUSD >= targetGain
-  const lossReached = stopLoss !== null && returnUSD <= -Math.abs(stopLoss)
+  const goalReached = targetGain !== null && returnForTarget >= targetGain
+  const lossReached = stopLoss !== null && returnForTarget <= -Math.abs(stopLoss)
 
-  // Progress toward target (0–100 clamped, based on returnUSD vs targetGain)
+  // Progress toward target (0–100 clamped)
   let progressPct = 0
   if (targetGain !== null && targetGain > 0) {
-    progressPct = Math.min(100, Math.max(0, (returnUSD / targetGain) * 100))
+    progressPct = Math.min(100, Math.max(0, (returnForTarget / targetGain) * 100))
   }
 
   const targetStateLabel = (() => {
@@ -103,7 +103,7 @@ export function PositionCard({
     if (goalReached) return 'Alcanzaste el objetivo que definiste.'
     if (lossReached) return 'Tu posicion esta por debajo del limite que definiste.'
     if (targetGain !== null) {
-      const remaining = targetGain - returnUSD
+      const remaining = targetGain - returnForTarget
       return `Te falta un ${remaining.toFixed(2)}% para alcanzar el objetivo que definiste.`
     }
     return null
@@ -174,22 +174,22 @@ export function PositionCard({
           ? "ring-2 ring-success/60 bg-success/5"
           : lossReached
           ? "ring-2 ring-loss/40 bg-loss/5"
-          : isPositiveARS 
-          ? "hover:ring-2 hover:ring-success/30" 
+          : isPositiveARS
+          ? "hover:ring-2 hover:ring-success/30"
           : "hover:ring-2 hover:ring-loss/30"
       )}>
         <div className={cn(
           "absolute top-0 left-0 right-0 h-1",
           isPositiveARS ? "bg-gradient-to-r from-success/80 to-success" : "bg-gradient-to-r from-loss/80 to-loss"
         )} />
-        
+
         <CardHeader className="pb-0">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
               <div className={cn(
                 "flex items-center justify-center w-12 h-12 rounded-xl text-lg font-bold shadow-sm",
-                isPositiveARS 
-                  ? "bg-gradient-to-br from-success/20 to-success/10 text-success" 
+                isPositiveARS
+                  ? "bg-gradient-to-br from-success/20 to-success/10 text-success"
                   : "bg-gradient-to-br from-loss/20 to-loss/10 text-loss"
               )}>
                 {position.ticker.slice(0, 2)}
@@ -221,7 +221,7 @@ export function PositionCard({
                 </p>
               </div>
             </div>
-            
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -230,7 +230,7 @@ export function PositionCard({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem 
+                <DropdownMenuItem
                   onClick={() => setShowDeleteDialog(true)}
                   className="text-loss focus:text-loss"
                 >
@@ -243,44 +243,46 @@ export function PositionCard({
         </CardHeader>
 
         <CardContent className="space-y-4 pt-4">
-          {/* Three Return Metrics */}
+          {/* Return Metrics */}
           <div className="space-y-2">
-            {/* Return in USD */}
-            <div className={cn(
-              "flex items-center justify-between p-3 rounded-lg",
-              position.returnUSD >= 0 ? "bg-success/10" : "bg-loss/10"
-            )}>
-              <div className="flex items-center gap-2">
-                <DollarSign className={cn(
-                  "w-4 h-4",
-                  position.returnUSD >= 0 ? "text-success" : "text-loss"
-                )} />
-                <span className="text-sm font-medium text-foreground">Retorno en USD</span>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button className="text-muted-foreground hover:text-foreground">
-                      <Info className="w-3.5 h-3.5" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-[250px]">
-                    <p>Cuanto gano o perdio la accion en Wall Street, sin importar lo que hizo el dolar.</p>
-                  </TooltipContent>
-                </Tooltip>
+            {/* Return in USD — hidden for Merval */}
+            {!isMerval && (
+              <div className={cn(
+                "flex items-center justify-between p-3 rounded-lg",
+                position.returnUSD >= 0 ? "bg-success/10" : "bg-loss/10"
+              )}>
+                <div className="flex items-center gap-2">
+                  <DollarSign className={cn(
+                    "w-4 h-4",
+                    position.returnUSD >= 0 ? "text-success" : "text-loss"
+                  )} />
+                  <span className="text-sm font-medium text-foreground">Retorno en USD</span>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button className="text-muted-foreground hover:text-foreground">
+                        <Info className="w-3.5 h-3.5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-[250px]">
+                      <p>Cuanto gano o perdio la accion en Wall Street, sin importar lo que hizo el dolar.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+                <div className="flex items-center gap-1">
+                  {position.returnUSD >= 0 ? (
+                    <TrendingUp className="w-4 h-4 text-success" />
+                  ) : (
+                    <TrendingDown className="w-4 h-4 text-loss" />
+                  )}
+                  <span className={cn(
+                    "text-lg font-bold",
+                    position.returnUSD >= 0 ? "text-success" : "text-loss"
+                  )}>
+                    {formatPercent(position.returnUSD)}
+                  </span>
+                </div>
               </div>
-              <div className="flex items-center gap-1">
-                {position.returnUSD >= 0 ? (
-                  <TrendingUp className="w-4 h-4 text-success" />
-                ) : (
-                  <TrendingDown className="w-4 h-4 text-loss" />
-                )}
-                <span className={cn(
-                  "text-lg font-bold",
-                  position.returnUSD >= 0 ? "text-success" : "text-loss"
-                )}>
-                  {formatPercent(position.returnUSD)}
-                </span>
-              </div>
-            </div>
+            )}
 
             {/* Return in ARS */}
             <div className={cn(
@@ -319,42 +321,44 @@ export function PositionCard({
               </div>
             </div>
 
-            {/* CCL Effect */}
-            <div className={cn(
-              "flex items-center justify-between p-3 rounded-lg",
-              position.cclEffect >= 0 ? "bg-success/10" : "bg-loss/10"
-            )}>
-              <div className="flex items-center gap-2">
-                <ArrowUpDown className={cn(
-                  "w-4 h-4",
-                  position.cclEffect >= 0 ? "text-success" : "text-loss"
-                )} />
-                <span className="text-sm font-medium text-foreground">Efecto CCL</span>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button className="text-muted-foreground hover:text-foreground">
-                      <Info className="w-3.5 h-3.5" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent className="max-w-[250px]">
-                    <p>Cuanto de tu ganancia (o perdida) en pesos se debe a la variacion del tipo de cambio.</p>
-                  </TooltipContent>
-                </Tooltip>
+            {/* CCL Effect — hidden for Merval */}
+            {!isMerval && (
+              <div className={cn(
+                "flex items-center justify-between p-3 rounded-lg",
+                position.cclEffect >= 0 ? "bg-success/10" : "bg-loss/10"
+              )}>
+                <div className="flex items-center gap-2">
+                  <ArrowUpDown className={cn(
+                    "w-4 h-4",
+                    position.cclEffect >= 0 ? "text-success" : "text-loss"
+                  )} />
+                  <span className="text-sm font-medium text-foreground">Efecto CCL</span>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button className="text-muted-foreground hover:text-foreground">
+                        <Info className="w-3.5 h-3.5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-[250px]">
+                      <p>Cuanto de tu ganancia (o perdida) en pesos se debe a la variacion del tipo de cambio.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+                <div className="flex items-center gap-1">
+                  {position.cclEffect >= 0 ? (
+                    <TrendingUp className="w-4 h-4 text-success" />
+                  ) : (
+                    <TrendingDown className="w-4 h-4 text-loss" />
+                  )}
+                  <span className={cn(
+                    "text-lg font-bold",
+                    position.cclEffect >= 0 ? "text-success" : "text-loss"
+                  )}>
+                    {formatPercent(position.cclEffect)}
+                  </span>
+                </div>
               </div>
-              <div className="flex items-center gap-1">
-                {position.cclEffect >= 0 ? (
-                  <TrendingUp className="w-4 h-4 text-success" />
-                ) : (
-                  <TrendingDown className="w-4 h-4 text-loss" />
-                )}
-                <span className={cn(
-                  "text-lg font-bold",
-                  position.cclEffect >= 0 ? "text-success" : "text-loss"
-                )}>
-                  {formatPercent(position.cclEffect)}
-                </span>
-              </div>
-            </div>
+            )}
           </div>
 
           {/* Target / Mi objetivo section */}
@@ -396,7 +400,7 @@ export function PositionCard({
                     />
                   </div>
                   <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>{formatPercent(returnUSD)}</span>
+                    <span>{formatPercent(returnForTarget)}</span>
                     <span>Objetivo: +{targetGain}%</span>
                   </div>
                 </div>
@@ -489,41 +493,58 @@ export function PositionCard({
             </div>
           </div>
 
-          {/* Ratio correction hint */}
-          <div className="text-xs text-muted-foreground flex items-center justify-between">
-            <span>El precio teorico no coincide con el de tu broker?</span>
-            <button
-              onClick={() => setShowRatioModal(true)}
-              className="text-primary hover:underline font-medium"
-            >
-              Corregir ratio
-            </button>
-          </div>
+          {/* Ratio correction hint — hidden for Merval */}
+          {!isMerval && (
+            <div className="text-xs text-muted-foreground flex items-center justify-between">
+              <span>El precio teorico no coincide con el de tu broker?</span>
+              <button
+                onClick={() => setShowRatioModal(true)}
+                className="text-primary hover:underline font-medium"
+              >
+                Corregir ratio
+              </button>
+            </div>
+          )}
 
           {/* Details grid */}
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div className="flex items-center gap-2">
               <DollarSign className="w-4 h-4 text-muted-foreground" />
-              <span className="text-muted-foreground">Stock USD:</span>
-              <span className="font-medium text-foreground ml-auto">{formatUSD(position.currentStockPriceUSD)}</span>
+              {isMerval ? (
+                <>
+                  <span className="text-muted-foreground">Precio ARS:</span>
+                  <span className="font-medium text-foreground ml-auto">{formatARS(position.currentStockPriceUSD)}</span>
+                </>
+              ) : (
+                <>
+                  <span className="text-muted-foreground">Stock USD:</span>
+                  <span className="font-medium text-foreground ml-auto">{formatUSD(position.currentStockPriceUSD)}</span>
+                </>
+              )}
             </div>
-            <div className="flex items-center gap-2">
-              <BarChart3 className="w-4 h-4 text-muted-foreground" />
-              <span className="text-muted-foreground">CCL prom.:</span>
-              <span className="font-medium text-foreground ml-auto">{formatARS(position.avgCclAtPurchase)}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <BarChart3 className="w-4 h-4 text-muted-foreground" />
-              <span className="text-muted-foreground">CCL actual:</span>
-              <span className="font-medium text-foreground ml-auto">{formatARS(cclRate)}</span>
-            </div>
+            {!isMerval && (
+              <>
+                <div className="flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-muted-foreground">CCL prom.:</span>
+                  <span className="font-medium text-foreground ml-auto">{formatARS(position.avgCclAtPurchase)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-muted-foreground">CCL actual:</span>
+                  <span className="font-medium text-foreground ml-auto">{formatARS(cclRate)}</span>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Investment summary */}
           <div className="border-t border-border pt-3 space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Cantidad:</span>
-              <span className="font-medium text-foreground">{position.totalQuantity} CEDEARs</span>
+              <span className="font-medium text-foreground">
+                {position.totalQuantity} {isMerval ? 'unidades' : 'CEDEARs'}
+              </span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Total Invertido:</span>
@@ -579,10 +600,10 @@ export function PositionCard({
                   Agregar compra
                 </Button>
               </div>
-              
+
               <CollapsibleContent className="mt-3 space-y-2">
                 {sortedPurchases.map((purchase, index) => (
-                  <div 
+                  <div
                     key={purchase.id}
                     className={cn(
                       "p-3 rounded-lg bg-secondary/30 text-sm",
@@ -623,14 +644,18 @@ export function PositionCard({
                         <span className="text-muted-foreground">Precio:</span>
                         <span className="ml-1 font-medium text-foreground">{formatARS(purchase.priceARS)}</span>
                       </div>
-                      <div>
-                        <span className="text-muted-foreground">CCL:</span>
-                        <span className="ml-1 font-medium text-foreground">{formatARS(purchase.cclAtPurchase)}</span>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Stock USD:</span>
-                        <span className="ml-1 font-medium text-foreground">{formatUSD(purchase.stockPriceUSD)}</span>
-                      </div>
+                      {!isMerval && (
+                        <>
+                          <div>
+                            <span className="text-muted-foreground">CCL:</span>
+                            <span className="ml-1 font-medium text-foreground">{formatARS(purchase.cclAtPurchase)}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Stock USD:</span>
+                            <span className="ml-1 font-medium text-foreground">{formatUSD(purchase.stockPriceUSD)}</span>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -667,7 +692,7 @@ export function PositionCard({
           <AlertDialogHeader>
             <AlertDialogTitle>Eliminar compra</AlertDialogTitle>
             <AlertDialogDescription>
-              {position.purchases.length === 1 
+              {position.purchases.length === 1
                 ? 'Esta es la unica compra de esta posicion. Al eliminarla se eliminara toda la posicion.'
                 : 'Estas seguro de que queres eliminar esta compra? Los promedios se recalcularan automaticamente.'}
             </AlertDialogDescription>
@@ -696,6 +721,7 @@ export function PositionCard({
         onOpenChange={setShowPurchaseDialog}
         ticker={position.ticker}
         ratio={position.ratio}
+        market={position.market}
         purchase={editingPurchase}
         onSave={handleSavePurchase}
         mode={editingPurchase ? 'edit' : 'create'}
@@ -707,12 +733,12 @@ export function PositionCard({
           <DialogHeader>
             <DialogTitle>Mi objetivo — {position.ticker}</DialogTitle>
             <DialogDescription id="target-dialog-desc">
-              Define un objetivo de ganancia o limite de perdida en USD para esta posicion.
+              Define un objetivo de ganancia o limite de perdida para esta posicion.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <p className="text-xs text-muted-foreground">
-              Opcional. Define tus metas personales en USD para esta posicion.
+              Opcional. Define tus metas personales para esta posicion.
             </p>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
@@ -743,7 +769,9 @@ export function PositionCard({
               </div>
             </div>
             <p className="text-xs text-muted-foreground">
-              El porcentaje se compara con el retorno en USD de la posicion.
+              {isMerval
+                ? 'El porcentaje se compara con el retorno en ARS de la posicion.'
+                : 'El porcentaje se compara con el retorno en USD de la posicion.'}
             </p>
           </div>
           <DialogFooter className="gap-2">

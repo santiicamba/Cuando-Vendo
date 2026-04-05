@@ -29,6 +29,7 @@ interface PurchaseDialogProps {
   onOpenChange: (open: boolean) => void
   ticker: string
   ratio: number
+  market: string
   purchase?: Purchase | null
   onSave: (data: Omit<Purchase, 'id'>) => void
   mode: 'create' | 'edit'
@@ -36,7 +37,8 @@ interface PurchaseDialogProps {
 
 type FetchStatus = 'idle' | 'loading' | 'success' | 'error'
 
-export function PurchaseDialog({ open, onOpenChange, ticker, ratio, purchase, onSave, mode }: PurchaseDialogProps) {
+export function PurchaseDialog({ open, onOpenChange, ticker, ratio, market, purchase, onSave, mode }: PurchaseDialogProps) {
+  const isMerval = market === 'MERVAL'
   const [purchaseDate, setPurchaseDate] = useState<Date | undefined>(undefined)
   const [priceARS, setPriceARS] = useState('')
   const [cclAtPurchase, setCclAtPurchase] = useState('')
@@ -79,13 +81,26 @@ export function PurchaseDialog({ open, onOpenChange, ticker, ratio, purchase, on
         setQuantity('')
         setStockPriceUSD('')
         setPriceFetchStatus('idle')
-        // Fetch current price for new purchase
-        fetchStockPrice()
+        // Fetch current price for new non-Merval purchase
+        if (!isMerval) fetchStockPrice()
       }
     }
   }, [open, mode, purchase, fetchStockPrice])
 
   const handleSave = () => {
+    if (isMerval) {
+      if (!purchaseDate || !priceARS || !quantity) return
+      onSave({
+        date: purchaseDate.toISOString(),
+        quantity: parseFloat(quantity),
+        priceARS: parseFloat(priceARS),
+        cclAtPurchase: 1,
+        stockPriceUSD: parseFloat(priceARS),
+      })
+      onOpenChange(false)
+      return
+    }
+
     if (!purchaseDate || !priceARS || !cclAtPurchase || !quantity || !stockPriceUSD) {
       return
     }
@@ -113,7 +128,9 @@ export function PurchaseDialog({ open, onOpenChange, ticker, ratio, purchase, on
     onOpenChange(false)
   }
 
-  const isValid = purchaseDate && priceARS && cclAtPurchase && quantity && stockPriceUSD
+  const isValid = isMerval
+    ? !!(purchaseDate && priceARS && quantity)
+    : !!(purchaseDate && priceARS && cclAtPurchase && quantity && stockPriceUSD)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -163,7 +180,7 @@ export function PurchaseDialog({ open, onOpenChange, ticker, ratio, purchase, on
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="quantity">Cantidad de CEDEARs</Label>
+            <Label htmlFor="quantity">Cantidad</Label>
             <Input
               id="quantity"
               type="number"
@@ -176,6 +193,21 @@ export function PurchaseDialog({ open, onOpenChange, ticker, ratio, purchase, on
             />
           </div>
 
+          {isMerval ? (
+            <div className="space-y-2">
+              <Label htmlFor="priceARS">Precio en ARS (al comprar)</Label>
+              <Input
+                id="priceARS"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="ej: 15000"
+                value={priceARS}
+                onChange={(e) => setPriceARS(e.target.value)}
+                className="bg-card"
+              />
+            </div>
+          ) : (
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="priceARS">Precio por Unidad (ARS)</Label>
@@ -204,7 +236,9 @@ export function PurchaseDialog({ open, onOpenChange, ticker, ratio, purchase, on
               />
             </div>
           </div>
+          )}
 
+          {!isMerval && (
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label htmlFor="stockPriceUSD">Precio Stock USD (al comprar)</Label>
@@ -243,6 +277,7 @@ export function PurchaseDialog({ open, onOpenChange, ticker, ratio, purchase, on
               Precio del activo en USD en el momento de la compra
             </p>
           </div>
+          )}
         </div>
 
         <DialogFooter>
