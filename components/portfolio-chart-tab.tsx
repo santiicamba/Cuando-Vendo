@@ -34,12 +34,10 @@ const CATEGORY_COLORS: Record<string, string> = {
   'Bonos': '#6366f1',
 }
 
-// Ticker color palette
+// Ticker color palette — high contrast for clear slice distinction
 const TICKER_COLORS = [
-  '#059669', '#10b981', '#34d399', '#6ee7b7',
-  '#f59e0b', '#fbbf24', '#fcd34d',
-  '#6366f1', '#818cf8', '#a5b4fc',
-  '#ec4899', '#f43f5e'
+  '#2563eb', '#dc2626', '#d97706', '#7c3aed', '#059669', '#db2777',
+  '#0891b2', '#65a30d', '#ea580c', '#4f46e5', '#0d9488', '#b91c1c',
 ]
 
 // Custom active shape for hover effect

@@ -335,14 +335,6 @@ export function Dashboard() {
       )}
 
       <main className="container mx-auto px-4 py-6 space-y-6">
-        <MarketDataPanel
-          cclRate={marketData.cclRate}
-          lastPricesUpdated={marketData.lastPricesUpdated}
-          isRefreshing={isRefreshing}
-          onCCLChange={handleCCLChange}
-          onRefreshAll={() => refreshAllPrices(false)}
-        />
-
         {positions.length > 0 && (
           <PortfolioSummary summary={portfolioSummary} />
         )}
@@ -351,6 +343,14 @@ export function Dashboard() {
           <EmptyState onAddPosition={handleOpenDialog} />
         ) : (
           <div className="space-y-4">
+            <MarketDataPanel
+              cclRate={marketData.cclRate}
+              lastPricesUpdated={marketData.lastPricesUpdated}
+              isRefreshing={isRefreshing}
+              onCCLChange={handleCCLChange}
+              onRefreshAll={() => refreshAllPrices(false)}
+            />
+
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-foreground">
                 Mis Posiciones ({positions.length})
