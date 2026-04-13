@@ -269,4 +269,5 @@ export const CEDEARS: CEDEAR[] = [
   { ticker: "EDN", name: "Edenor S.A.", ratio: 1, market: "MERVAL" },
   { ticker: "TECO2", name: "Telecom Argentina S.A.", ratio: 1, market: "MERVAL" },
   { ticker: "VALO", name: "Grupo Financiero Valores S.A.", ratio: 1, market: "MERVAL" },
+  { ticker: "ECOG", name: "Ecogas S.A.", ratio: 1, market: "MERVAL" },
 ]
