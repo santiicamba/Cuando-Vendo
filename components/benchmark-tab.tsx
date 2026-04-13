@@ -60,19 +60,23 @@ export function BenchmarkTab({ onSwitchToHome }: BenchmarkTabProps) {
     setIsLoading(false)
   }, [])
 
-  // Get earliest purchase date
+  // Get earliest purchase date — if mixed portfolio, only consider non-Merval positions
+  // (so SPY comparison starts from when the first CEDEAR was bought)
   const getEarliestDate = useCallback((): Date | null => {
     if (positions.length === 0) return null
-    const allDates = positions.flatMap(p => p.purchases.map(pu => new Date(pu.date)))
+    const nonMerval = positions.filter(p => p.market !== 'MERVAL')
+    const source = nonMerval.length > 0 ? nonMerval : positions
+    const allDates = source.flatMap(p => p.purchases.map(pu => new Date(pu.date)))
     if (allDates.length === 0) return null
     return new Date(Math.min(...allDates.map(d => d.getTime())))
   }, [positions])
 
-  // Get earliest CCL at purchase
+  // Get earliest CCL at purchase — skip Merval positions (stored with cclAtPurchase: 1 as a workaround)
   const getEarliestCCL = useCallback((): number | null => {
     if (positions.length === 0) return null
     let earliest: { date: Date; ccl: number } | null = null
     for (const pos of positions) {
+      if (pos.market === 'MERVAL') continue  // Merval positions have fake CCL of 1
       for (const pu of pos.purchases) {
         const d = new Date(pu.date)
         if (!earliest || d < earliest.date) {

@@ -5,7 +5,7 @@ import { AlertCircle, Home, ArrowLeft } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Sector } from 'recharts'
+import { PieChart, Pie, Cell, ResponsiveContainer, Sector } from 'recharts'
 import { Position, CalculatedPosition, calculatePosition, formatARS } from '@/lib/types'
 import { getPositions, getMarketData } from '@/lib/store'
 
@@ -252,15 +252,7 @@ export function PortfolioChartTab({ onSwitchToHome }: PortfolioChartTabProps) {
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip
-                  formatter={(value: number) => formatARS(value)}
-                  contentStyle={{
-                    backgroundColor: 'hsl(var(--card))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '8px',
-                    fontSize: '12px',
-                  }}
-                />
+
               </PieChart>
             </ResponsiveContainer>
             {/* Center label */}
