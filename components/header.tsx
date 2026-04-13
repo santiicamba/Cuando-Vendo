@@ -22,7 +22,7 @@ export function Header() {
               {'¿Cuándo Vendo?'}
             </h1>
             <p className="text-xs text-muted-foreground">
-              CEDEAR Investment Tracker
+              Investment Tracker
             </p>
           </div>
         </div>

@@ -106,8 +106,14 @@ export function calculatePosition(position: Position, cclRate: number): Calculat
     purchasePriceUSD = 0
     currentPriceUSD = 0
     dailyChangeUSD = null
-    dailyChangePercent = null
-    dailyChangeARS = null
+    if (position.previousCloseUSD !== null && position.previousCloseUSD > 0) {
+      const priceChangeARS = position.currentStockPriceUSD - position.previousCloseUSD
+      dailyChangePercent = (priceChangeARS / position.previousCloseUSD) * 100
+      dailyChangeARS = priceChangeARS * totalQuantity
+    } else {
+      dailyChangePercent = null
+      dailyChangeARS = null
+    }
   } else {
     // For non-Merval (CEDEARs): existing logic
     // Theoretical Price (ARS) = (Current stock price in USD / Ratio) × CCL rate

@@ -48,7 +48,7 @@ export function CEDEARCombobox({ value, onSelect, disabled }: CEDEARComboboxProp
           ) : (
             <span className="text-muted-foreground flex items-center gap-2">
               <Search className="w-4 h-4" />
-              Buscar CEDEAR...
+              Buscar activo...
             </span>
           )}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -58,7 +58,7 @@ export function CEDEARCombobox({ value, onSelect, disabled }: CEDEARComboboxProp
         <Command>
           <CommandInput placeholder="Buscar por ticker o nombre..." />
           <CommandList>
-            <CommandEmpty>No se encontró ningún CEDEAR.</CommandEmpty>
+            <CommandEmpty>No se encontro ningun activo.</CommandEmpty>
             <CommandGroup>
               {CEDEARS.map((cedear) => (
                 <CommandItem
