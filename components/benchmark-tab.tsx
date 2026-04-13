@@ -263,7 +263,7 @@ export function BenchmarkTab({ onSwitchToHome }: BenchmarkTabProps) {
                       {formatPercent(benchmarkData.spy.returnUSD)} USD
                     </p>
                   </div>
-                  {getBadge(benchmarkData.spy.returnUSD, portfolioReturnUSD)}
+                  {getBadge(benchmarkData.spy.returnARS, portfolioReturnARS)}
                 </div>
               ) : (
                 <span className="text-xs text-muted-foreground">Cargando...</span>

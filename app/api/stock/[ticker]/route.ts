@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server'
 const MERVAL_TICKERS = new Set([
   'GGAL', 'YPFD', 'BMA', 'BBAR', 'SUPV', 'CRES', 'ALUA', 'TXAR', 'PAMP',
   'TGSU2', 'TGNO4', 'CGPA2', 'COME', 'MIRG', 'MOLI', 'LOMA', 'HARG', 'BYMA',
-  'CEPU', 'EDN', 'TECO2', 'VALO'
+  'CEPU', 'EDN', 'TECO2', 'VALO', 'ECOG'
 ])
 
 export async function GET(
